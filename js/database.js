@@ -6,7 +6,7 @@ class FlowerDatabase {
     this.flowers = [];
     this.serverUrl = 'https://ar-flowers-server.onrender.com/api'; // Deployed server URL
     this.localServerUrl = 'http://localhost:3000/api'; // For local testing
-    this.useLocalServer = false; // Use the deployed server instead of local server
+    this.useLocalServer = false; // Set to false to use the deployed server
     
     // Use the appropriate server URL based on the environment
     this.apiUrl = this.useLocalServer ? this.localServerUrl : this.serverUrl;
