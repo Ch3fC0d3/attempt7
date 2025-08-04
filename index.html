@@ -422,30 +422,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               console.log("[DEBUG] Placing drawing at hit location");
               
               if (currentPosition) {
-                // Create a drawing node
-                const drawingNode = new Node();
+                // Use the same approach as flowers - add drawing to scene first
+                const drawingNode = await addDrawingToScene(anchor, pendingDrawing);
                 
-                // Create a plane for the drawing (async)
-                try {
-                  console.log("[DEBUG] Creating drawing plane with data length:", pendingDrawing ? pendingDrawing.length : 'null');
-                  
-                  // Ensure we have valid drawing data
-                  if (!pendingDrawing) {
-                    console.error("[DEBUG] No pending drawing data available");
-                    updateStatusMessage("Error: No drawing data available");
-                    return;
-                  }
-                  
-                  // Use async/await to ensure the drawing plane is fully created before proceeding
-                  const drawingPlane = await createDrawingPlane(pendingDrawing);
-                  console.log("[DEBUG] Drawing plane created successfully");
-                  
-                  drawingPlane.scale = [0.2, 0.2, 0.2]; // Scale appropriately
-                  drawingNode.addNode(drawingPlane);
-                  
-                  // Add the drawing to the scene
-                  scene.addNode(drawingNode);
-                  
+                if (drawingNode) {
                   // Save the drawing with GPS coordinates
                   try {
                     const drawingData = {
@@ -470,17 +450,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                     console.error('[GPS] Error saving drawing:', error);
                     updateStatusMessage('Error saving drawing. Placed locally only.');
                   }
-                  
-                  // Add to anchored objects
-                  anchoredObjects.push({
-                    anchoredObject: drawingNode,
-                    anchor: anchor,
-                    isDrawing: true,
-                    isGpsFlower: false
-                  });
-                } catch (error) {
-                  console.error("[DEBUG] Error creating drawing plane:", error);
-                  updateStatusMessage('Error creating drawing. Please try again.');
                 }
               } else {
                 console.log("[GPS] GPS not available, cannot place drawing");
@@ -804,6 +773,39 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Notify user to place the drawing
         updateStatusMessage('Drawing ready! Point at a surface to place it.');
       });
+      
+      // Function to add a drawing to the scene (similar to addAnchoredObjectsToScene)
+      async function addDrawingToScene(anchor, drawingData) {
+        console.log("[DEBUG] Adding anchored drawing to scene");
+        
+        try {
+          // Create a drawing node
+          const drawingNode = new Node();
+          
+          // Create a plane for the drawing
+          const drawingPlane = await createDrawingPlane(drawingData);
+          drawingPlane.scale = [0.2, 0.2, 0.2]; // Scale appropriately
+          drawingNode.addNode(drawingPlane);
+          
+          // Add the drawing to the scene
+          scene.addNode(drawingNode);
+          
+          // Add to anchored objects
+          anchoredObjects.push({
+            anchoredObject: drawingNode,
+            anchor: anchor,
+            isDrawing: true,
+            isGpsFlower: false
+          });
+          
+          console.log("[DEBUG] Drawing added to scene successfully");
+          return drawingNode;
+        } catch (error) {
+          console.error("[DEBUG] Error adding drawing to scene:", error);
+          updateStatusMessage('Error creating drawing. Please try again.');
+          return null;
+        }
+      }
 
       // Start the application
       initXR();
