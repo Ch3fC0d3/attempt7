@@ -51,15 +51,15 @@ class DrawingManager {
     canvasWrapper.style.zIndex = '10000';
     canvasWrapper.style.backgroundColor = '#444';
     canvasWrapper.style.width = '100%';
-    canvasWrapper.style.maxWidth = '250px';
-    canvasWrapper.style.height = '200px';
+    canvasWrapper.style.maxWidth = '320px';
+    canvasWrapper.style.height = 'auto';
     canvasWrapper.style.border = '3px solid #fff';
     canvasWrapper.style.borderRadius = '8px';
     this.container.appendChild(canvasWrapper);
     
     // Create canvas with inline HTML approach
     canvasWrapper.innerHTML = `
-      <canvas id="drawing-canvas" width="200" height="150" 
+      <canvas id="drawing-canvas" width="280" height="200" 
         style="background-color: #ffffff; border: 3px solid #ff0000; display: block; margin: 0 auto;">
         Your browser does not support canvas
       </canvas>
@@ -267,10 +267,10 @@ class DrawingManager {
     this.canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
     this.canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
     
-    // Touch events
-    this.canvas.addEventListener('touchstart', this.handleTouch.bind(this));
-    this.canvas.addEventListener('touchmove', this.handleTouch.bind(this));
-    this.canvas.addEventListener('touchend', this.stopDrawing.bind(this));
+    // Touch events with passive option for better performance
+    this.canvas.addEventListener('touchstart', this.handleTouch.bind(this), { passive: false });
+    this.canvas.addEventListener('touchmove', this.handleTouch.bind(this), { passive: false });
+    this.canvas.addEventListener('touchend', this.stopDrawing.bind(this), { passive: true });
     
     // Resize canvas when window resizes
     window.addEventListener('resize', this.resizeCanvas.bind(this));
@@ -372,11 +372,21 @@ class DrawingManager {
     const rect = this.canvas.getBoundingClientRect();
     const touch = e.touches[0];
     
+    // Calculate the scale factor between the canvas display size and its internal size
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+    
+    // Calculate the touch position relative to the canvas and apply scaling
+    const offsetX = (touch.clientX - rect.left) * scaleX;
+    const offsetY = (touch.clientY - rect.top) * scaleY;
+    
+    console.log(`Touch at: ${touch.clientX},${touch.clientY} -> Canvas: ${offsetX},${offsetY}`);
+    
     return {
       clientX: touch.clientX,
       clientY: touch.clientY,
-      offsetX: touch.clientX - rect.left,
-      offsetY: touch.clientY - rect.top
+      offsetX: offsetX,
+      offsetY: offsetY
     };
   }
   
@@ -490,9 +500,14 @@ class DrawingManager {
     // Get the current drawing data
     const currentDrawingData = this.drawingData;
     
-    // Set fixed canvas dimensions
-    this.canvas.width = 200;
-    this.canvas.height = 150;
+    // Get the viewport dimensions
+    const viewportWidth = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+    
+    // Set fixed canvas dimensions - smaller for mobile
+    // Use a smaller size that works well on mobile
+    const isMobile = viewportWidth < 768;
+    this.canvas.width = isMobile ? 280 : 320;
+    this.canvas.height = isMobile ? 200 : 240;
     
     // Clear canvas and make it white
     this.ctx.fillStyle = 'white';
@@ -511,6 +526,8 @@ class DrawingManager {
       };
       img.src = currentDrawingData;
     }
+    
+    console.log(`Canvas resized to: ${this.canvas.width}x${this.canvas.height}`);
   }
 }
 
