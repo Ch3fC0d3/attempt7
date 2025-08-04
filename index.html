@@ -28,6 +28,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
     <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
     <link rel='stylesheet' href='css/common.css'>
+    <link rel='stylesheet' href='css/main.css'>
+    <link rel='stylesheet' href='css/drawing.css'>
     <link rel='stylesheet' href='css/coordinates.css'>
 
     <title>Location-Based AR Flowers</title>
@@ -53,8 +55,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {DropShadowNode} from './js/render/nodes/drop-shadow.js';
       import {vec3} from './js/render/math/gl-matrix.js';
       import {Ray} from './js/render/math/ray.js';
+      import {Texture} from './js/render/core/texture.js';
+      import {Material} from './js/render/core/material.js';
+      import {Mesh} from './js/render/core/mesh.js';
       import {geoService} from './js/geolocation.js';
       import {flowerDB} from './js/database.js';
+      import {drawing} from './js/drawing.js';
 
       // XR globals.
       let xrButton = null;
@@ -65,10 +71,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Debug variables
       // Note: frameCounter and lastLogTime are declared later in the file
       
-      // GPS and location variables
+      // Global variables
       let currentPosition = null;
-      let gpsInitialized = false;
       let nearbyFlowers = [];
+      let nearbyDrawings = [];
+      let pendingDrawing = null;
       const GPS_UPDATE_INTERVAL = 10000; // 10 seconds
       const NEARBY_THRESHOLD = 20; // 20 meters
 
@@ -265,23 +272,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
       
       function initXR() {
-        // Initialize GPS first
-        initGPS();
         xrButton = new WebXRButton({
           onRequestSession: onRequestSession,
-          onEndSession: onEndSession,
-          textEnterXRTitle: "START AR",
-          textXRNotFoundTitle: "AR NOT FOUND",
-          textExitXRTitle: "EXIT  AR",
+          onEndSession: onEndSession
         });
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
           navigator.xr.isSessionSupported('immersive-ar')
-                      .then((supported) => {
-            xrButton.enabled = supported;
-          });
+              .then((supported) => {
+                xrButton.enabled = supported;
+              });
         }
+        
+        // Listen for drawing completion event
+        document.addEventListener('drawingComplete', (event) => {
+          console.log('Drawing completed, ready to place in AR');
+          pendingDrawing = event.detail.drawingData;
+          updateStatusMessage('Drawing ready! Tap to place it');
+        });
       }
 
       function onRequestSession() {
@@ -407,33 +416,90 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           reticleHitTestResult.createAnchor().then(async (anchor) => {
             console.log("[DEBUG] Anchor created successfully");
             
-            // Check if GPS is available before placing a flower
-            if (gpsInitialized && currentPosition) {
-              // Save the flower with GPS coordinates to server
-              const pose = reticleHitTestResult.getPose(xrRefSpace);
-              try {
-                const flowerData = await flowerDB.saveFlower(currentPosition, Array.from(pose.transform.matrix));
-                console.log(`[GPS] Saved flower at ${flowerData.latitude}, ${flowerData.longitude}`);
-                updateStatusMessage(`Flower placed and saved to server!`);
-                updateCoordinatesDisplay();
-              } catch (error) {
-                console.error('[GPS] Error saving flower to server:', error);
-                updateStatusMessage('Error saving flower to server. Placed locally only.');
+            // Check if we have a pending drawing to place
+            if (pendingDrawing) {
+              console.log("[DEBUG] Placing drawing at hit location");
+              
+              if (currentPosition) {
+                // Create a drawing node
+                const drawingNode = new Node();
+                
+                // Create a plane for the drawing
+                const drawingPlane = createDrawingPlane(pendingDrawing);
+                drawingPlane.scale = [0.2, 0.2, 0.2]; // Scale appropriately
+                drawingNode.addNode(drawingPlane);
+                
+                // Add the drawing to the scene
+                scene.addNode(drawingNode);
+                
+                // Save the drawing with GPS coordinates
+                try {
+                  const drawingData = {
+                    latitude: currentPosition.coords.latitude,
+                    longitude: currentPosition.coords.longitude,
+                    altitude: currentPosition.coords.altitude || 0,
+                    imageData: pendingDrawing,
+                    timestamp: new Date().toISOString()
+                  };
+                  
+                  // Save drawing to server
+                  await saveDrawingToServer(drawingData);
+                  console.log(`[GPS] Drawing saved at ${drawingData.latitude}, ${drawingData.longitude}`);
+                  updateStatusMessage('Drawing placed and saved!');
+                  
+                  // Clear the pending drawing
+                  pendingDrawing = null;
+                  
+                  // Refresh nearby drawings
+                  loadNearbyDrawings();
+                } catch (error) {
+                  console.error('[GPS] Error saving drawing:', error);
+                  updateStatusMessage('Error saving drawing. Placed locally only.');
+                }
+                
+                // Add to anchored objects
+                anchoredObjects.push({
+                  anchoredObject: drawingNode,
+                  anchor: anchor,
+                  isDrawing: true,
+                  isGpsFlower: false
+                });
+              } else {
+                console.log("[GPS] GPS not available, cannot place drawing");
+                updateStatusMessage("GPS not available, cannot place drawing");
               }
             } else {
-              console.log("[GPS] GPS not available, placing local flower only");
-              updateStatusMessage("GPS not available, placing local flower only");
+              // Check if GPS is available before placing a flower
+              if (currentPosition) {
+                // Save the flower with GPS coordinates to server
+                const pose = reticleHitTestResult.getPose(xrRefSpace);
+                try {
+                  const flowerData = await flowerDB.saveFlower(currentPosition, Array.from(pose.transform.matrix));
+                  console.log(`[GPS] Saved flower at ${flowerData.latitude}, ${flowerData.longitude}`);
+                  updateStatusMessage(`Flower placed and saved to server!`);
+                  updateCoordinatesDisplay();
+                } catch (error) {
+                  console.error('[GPS] Error saving flower to server:', error);
+                  updateStatusMessage('Error saving flower to server. Placed locally only.');
+                }
+                
+                // Add the flower to the scene as usual
+                addAnchoredObjectsToScene(anchor);
+              } else {
+                console.log("[GPS] GPS not available, placing local flower only");
+                updateStatusMessage("GPS not available, placing local flower only");
+                
+                // Add the flower to the scene as usual
+                addAnchoredObjectsToScene(anchor);
+              }
             }
-            
-            // Add the flower to the scene as usual
-            addAnchoredObjectsToScene(anchor);
           }).catch((error) => {
             console.error("[DEBUG] Could not create anchor: " + error);
-            updateStatusMessage("Could not place flower: " + error);
+            updateStatusMessage("Could not place object: " + error);
           });
         } else {
-          console.log("[DEBUG] Reticle not visible, cannot place flower");
-          updateStatusMessage("Point at a surface to place a flower");
+          console.log("[DEBUG] Reticle not visible, cannot place object");
+          updateStatusMessage("Point at a surface to place an object");
         }
       }
 
@@ -525,33 +591,170 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         scene.endFrame();
       }
 
-      // Add UI controls for GPS features
+      // Add GPS controls to the header
       function addGpsControls() {
         const header = document.querySelector('header');
-        
-        // Create clear button
-        const clearButton = document.createElement('button');
-        clearButton.textContent = 'Clear All GPS Flowers';
-        clearButton.style.marginTop = '10px';
-        clearButton.addEventListener('click', () => {
-          flowerDB.clearAll();
-          loadNearbyFlowers(); // Refresh the scene
-          updateStatusMessage('All GPS flowers cleared');
-        });
         
         // Create refresh button
         const refreshButton = document.createElement('button');
         refreshButton.textContent = 'Refresh GPS Flowers';
-        refreshButton.style.marginTop = '10px';
-        refreshButton.style.marginLeft = '10px';
         refreshButton.addEventListener('click', () => {
           loadNearbyFlowers();
           updateStatusMessage('GPS flowers refreshed');
         });
         
+        // Create draw button
+        const drawButton = document.createElement('button');
+        drawButton.textContent = 'Draw & Place';
+        drawButton.addEventListener('click', () => {
+          window.DrawingManager.showDrawingUI();
+          updateStatusMessage('Drawing mode activated');
+        });
+        
         // Add buttons to header
-        header.appendChild(clearButton);
         header.appendChild(refreshButton);
+        header.appendChild(drawButton);
+      }
+      
+      // Create a plane with the drawing texture
+      function createDrawingPlane(drawingData) {
+        // Create a simple plane
+        const plane = new Node();
+        
+        // Create a canvas to use as a texture
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw a white background
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw the image onto the canvas
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          // Create a texture from the canvas
+          const texture = new Texture(gl, {
+            image: canvas,
+            width: canvas.width,
+            height: canvas.height
+          });
+          
+          // Create a material using the texture
+          const material = new Material();
+          material.baseColorTexture = texture;
+          
+          // Create a mesh with the material
+          const mesh = new Mesh(gl, {
+            vertices: [
+              // Front face
+              -1.0, -1.0,  0.0,
+               1.0, -1.0,  0.0,
+               1.0,  1.0,  0.0,
+              -1.0,  1.0,  0.0,
+            ],
+            texcoords: [
+              0.0, 1.0,
+              1.0, 1.0,
+              1.0, 0.0,
+              0.0, 0.0,
+            ],
+            indices: [
+              0, 1, 2,
+              0, 2, 3,
+            ],
+            material: material
+          });
+          
+          plane.addNode(mesh);
+        };
+        img.src = drawingData;
+        
+        return plane;
+      }
+      
+      // Save drawing to server
+      async function saveDrawingToServer(drawingData) {
+        try {
+          const response = await fetch(`${flowerDB.apiUrl}/drawings`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(drawingData)
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+          }
+          
+          return await response.json();
+        } catch (error) {
+          console.error('Error saving drawing to server:', error);
+          throw error;
+        }
+      }
+      
+      // Load nearby drawings based on current position
+      async function loadNearbyDrawings() {
+        if (!currentPosition) {
+          console.log('[GPS] No position available yet for drawings');
+          return;
+        }
+        
+        try {
+          const response = await fetch(
+            `${flowerDB.apiUrl}/drawings/nearby?lat=${currentPosition.coords.latitude}&lng=${currentPosition.coords.longitude}&distance=${NEARBY_THRESHOLD}`
+          );
+          
+          if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+          }
+          
+          nearbyDrawings = await response.json();
+          console.log(`[GPS] Found ${nearbyDrawings.length} nearby drawings`);
+          
+          // Update the scene with the nearby drawings
+          updateDrawingsInScene();
+        } catch (error) {
+          console.error('[GPS] Error loading nearby drawings:', error);
+          nearbyDrawings = [];
+        }
+      }
+      
+      // Update the scene with nearby drawings
+      function updateDrawingsInScene() {
+        // Clear existing GPS-based drawings
+        for (const obj of anchoredObjects) {
+          if (obj.isDrawing && obj.isGpsFlower) {
+            scene.removeNode(obj.anchoredObject);
+          }
+        }
+        
+        // Filter to keep only non-drawing objects or user-placed drawings
+        anchoredObjects = anchoredObjects.filter(obj => !obj.isDrawing || !obj.isGpsFlower);
+        
+        // Add nearby GPS drawings to the scene
+        for (const drawingData of nearbyDrawings) {
+          const drawingNode = new Node();
+          const drawingPlane = createDrawingPlane(drawingData.imageData);
+          drawingPlane.scale = [0.2, 0.2, 0.2]; // Scale appropriately
+          drawingNode.addNode(drawingPlane);
+          scene.addNode(drawingNode);
+          
+          // Add to anchored objects
+          anchoredObjects.push({
+            anchoredObject: drawingNode,
+            anchor: null, // No XR anchor for GPS-based drawings
+            isDrawing: true,
+            isGpsFlower: true // This is a GPS-based drawing
+          });
+        }
+        
+        console.log(`[GPS] Scene updated with ${nearbyDrawings.length} GPS drawings`);
       }
       
       // Start the application
