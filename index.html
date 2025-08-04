@@ -453,12 +453,37 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Create the appropriate 3D object based on art type
         switch(artType) {
           case 'message':
-            // Create a text node for messages
-            artObject = new Gltf2Node({url: 'media/gltf/cube/cube.gltf'}); // Placeholder
-            artObject.scale = [0.15, 0.15, 0.05];
+            // Create a container node for the message
+            artObject = new Node();
             
-            // Store the message text in the art object for potential display
-            artObject.messageText = artData.text || 'No text';
+            // Add a cube as background/holder for the message
+            const cubeNode = new Gltf2Node({url: 'media/gltf/cube/cube.gltf'});
+            cubeNode.scale = [0.25, 0.15, 0.02]; // Make it flat like a sign
+            artObject.addNode(cubeNode);
+            
+            // Store the message text for reference
+            const messageText = artData.text || 'No text';
+            artObject.messageText = messageText;
+            
+            // Create a visible text display using HTML and CSS
+            const textDisplay = document.createElement('div');
+            textDisplay.innerText = messageText;
+            textDisplay.style.position = 'absolute';
+            textDisplay.style.backgroundColor = 'white';
+            textDisplay.style.color = 'black';
+            textDisplay.style.padding = '5px';
+            textDisplay.style.borderRadius = '5px';
+            textDisplay.style.fontWeight = 'bold';
+            textDisplay.style.zIndex = '1000';
+            textDisplay.style.pointerEvents = 'none'; // Don't interfere with AR interactions
+            textDisplay.classList.add('ar-text-label');
+            
+            // Store DOM element reference for positioning updates
+            artObject.textElement = textDisplay;
+            document.body.appendChild(textDisplay);
+            
+            // Visibility will be managed in the render loop
+            textDisplay.style.display = 'none';
             break;
             
           case 'painting':
@@ -694,6 +719,51 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           const anchorPose = frame.getPose(anchor.anchorSpace, xrRefSpace);
           if (anchorPose) {
             anchoredObject.matrix = anchorPose.transform.matrix;
+            
+            // If this is a message art type with a text element, update its position
+            if (anchoredObject.artType === 'message' && anchoredObject.textElement) {
+              // Get the 3D position of the anchor in the scene
+              const positionMatrix = anchorPose.transform.matrix;
+              
+              // Project the 3D position to 2D screen coordinates
+              const viewMatrix = view.transform.inverse.matrix;
+              const projectionMatrix = view.projectionMatrix;
+              
+              // Calculate position in clip space
+              const position = vec3.fromValues(
+                positionMatrix[12], 
+                positionMatrix[13] + 0.1, // Add a small offset to position text above the cube
+                positionMatrix[14]
+              );
+              
+              // Convert to NDC
+              const worldPos = vec3.create();
+              vec3.transformMat4(worldPos, position, viewMatrix);
+              vec3.transformMat4(worldPos, worldPos, projectionMatrix);
+              
+              // Convert to screen space
+              if (worldPos[2] < 0) {
+                // Object is behind the camera, hide the text
+                anchoredObject.textElement.style.display = 'none';
+              } else {
+                // Calculate screen position (in pixels)
+                const canvasWidth = gl.canvas.width;
+                const canvasHeight = gl.canvas.height;
+                
+                const screenX = (worldPos[0] / worldPos[2] + 1) * 0.5 * canvasWidth;
+                const screenY = (1 - (worldPos[1] / worldPos[2] + 1) * 0.5) * canvasHeight;
+                
+                // Update text element position
+                anchoredObject.textElement.style.left = `${screenX}px`;
+                anchoredObject.textElement.style.top = `${screenY}px`;
+                anchoredObject.textElement.style.display = 'block';
+                
+                // Optional: Add distance-based sizing for better readability
+                const distance = vec3.length(worldPos);
+                const scale = Math.max(0.5, Math.min(1.5, 1.0 / distance));
+                anchoredObject.textElement.style.transform = `translate(-50%, -50%) scale(${scale})`;
+              }
+            }
           } else if (shouldLog) {
             console.log(`[DEBUG] No anchor pose for tracked anchor`);
           }
