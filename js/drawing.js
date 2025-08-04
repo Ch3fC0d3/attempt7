@@ -34,13 +34,16 @@ class DrawingManager {
     canvasWrapper.style.display = 'flex';
     canvasWrapper.style.justifyContent = 'center';
     canvasWrapper.style.alignItems = 'center';
-    canvasWrapper.style.margin = '10px 0';
+    canvasWrapper.style.margin = '70px 0 10px 0'; // Add top margin to prevent toolbar overlap
     canvasWrapper.style.overflow = 'hidden';
+    canvasWrapper.style.position = 'relative';
+    canvasWrapper.style.zIndex = '1000'; // Lower than toolbar
     this.container.appendChild(canvasWrapper);
     
     // Create canvas
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'drawing-canvas';
+    this.canvas.style.marginTop = '20px'; // Add top margin to prevent toolbar overlap
     canvasWrapper.appendChild(this.canvas);
     
     // Create toolbar with enhanced visibility
@@ -56,11 +59,14 @@ class DrawingManager {
     toolbar.style.alignItems = 'center';
     toolbar.style.width = '90%';
     toolbar.style.maxWidth = '500px';
-    toolbar.style.position = 'relative';
-    toolbar.style.zIndex = '1001'; // Higher than canvas
+    toolbar.style.position = 'absolute';
+    toolbar.style.top = '10px';
+    toolbar.style.left = '50%';
+    toolbar.style.transform = 'translateX(-50%)';
+    toolbar.style.zIndex = '1002'; // Higher than canvas
     toolbar.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.3)';
     toolbar.style.border = '1px solid rgba(255, 255, 255, 0.1)';
-    this.container.insertBefore(toolbar, canvasWrapper); // Place toolbar before canvas
+    this.container.appendChild(toolbar); // Add toolbar to container
     
     // Add predefined color buttons for better visibility and usability
     const colors = ['#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff'];
