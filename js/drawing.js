@@ -25,32 +25,47 @@ class DrawingManager {
     // Create container
     this.container = document.createElement('div');
     this.container.className = 'drawing-container';
+    this.container.style.position = 'fixed';
+    this.container.style.top = '0';
+    this.container.style.left = '0';
+    this.container.style.width = '100%';
+    this.container.style.height = '100%';
+    this.container.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    this.container.style.display = 'flex';
+    this.container.style.flexDirection = 'column';
+    this.container.style.alignItems = 'center';
+    this.container.style.justifyContent = 'space-between';
+    this.container.style.padding = '20px';
+    this.container.style.zIndex = '9999';
     document.body.appendChild(this.container);
     
     // Create a wrapper for the canvas
     const canvasWrapper = document.createElement('div');
     canvasWrapper.className = 'canvas-wrapper';
-    canvasWrapper.style.flex = '1';
     canvasWrapper.style.display = 'flex';
     canvasWrapper.style.justifyContent = 'center';
     canvasWrapper.style.alignItems = 'center';
     canvasWrapper.style.margin = '90px 0 10px 0'; // Add top margin to prevent toolbar overlap
-    canvasWrapper.style.overflow = 'hidden';
+    canvasWrapper.style.overflow = 'visible';
     canvasWrapper.style.position = 'relative';
     canvasWrapper.style.zIndex = '1000'; // Lower than toolbar
-    canvasWrapper.style.backgroundColor = 'white'; // Add background color to canvas wrapper
+    canvasWrapper.style.backgroundColor = 'transparent'; // Transparent background
+    canvasWrapper.style.width = '100%';
+    canvasWrapper.style.height = '60vh';
     this.container.appendChild(canvasWrapper);
     
     // Create canvas
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'drawing-canvas';
-    this.canvas.style.marginTop = '20px'; // Add top margin to prevent toolbar overlap
     this.canvas.style.width = '100%';
-    this.canvas.style.height = '80vh';
+    this.canvas.style.height = '400px';
     this.canvas.style.backgroundColor = 'white';
-    this.canvas.style.border = '1px solid #ccc';
+    this.canvas.style.border = '3px solid #000';
     this.canvas.style.display = 'block';
     this.canvas.style.maxWidth = '500px';
+    this.canvas.style.position = 'relative';
+    this.canvas.style.zIndex = '10000'; // Higher than everything
+    this.canvas.style.boxShadow = '0 0 10px rgba(255,255,255,0.5)';
     canvasWrapper.appendChild(this.canvas);
     
     // Create toolbar with enhanced visibility
