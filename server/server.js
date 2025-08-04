@@ -74,21 +74,32 @@ app.get('/api/flowers', (req, res) => {
 });
 
 app.post('/api/flowers', (req, res) => {
-  const newFlower = req.body;
+  const newArt = req.body;
   
-  // Validate flower data
-  if (!newFlower.latitude || !newFlower.longitude) {
-    return res.status(400).json({ error: 'Missing required flower data' });
+  // Validate art data
+  if (!newArt.latitude || !newArt.longitude) {
+    return res.status(400).json({ error: 'Missing required location data' });
   }
   
   // Add ID and timestamp if not provided
-  newFlower.id = newFlower.id || `flower_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  newFlower.timestamp = newFlower.timestamp || new Date().toISOString();
+  newArt.id = newArt.id || `art_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  newArt.timestamp = newArt.timestamp || new Date().toISOString();
   
-  flowers.push(newFlower);
+  // Set default audience and validate creatorId
+  newArt.audience = newArt.audience || 'public';
+  if (!newArt.creatorId) {
+    return res.status(400).json({ error: 'Missing creatorId' });
+  }
+  
+  // Set default art type if not provided
+  newArt.artType = newArt.artType || 'flower';
+  newArt.artData = newArt.artData || {};
+  
+  flowers.push(newArt);
   saveFlowers();
   
-  res.status(201).json(newFlower);
+  console.log(`Art saved: ${newArt.artType} at ${newArt.latitude}, ${newArt.longitude}`);
+  res.status(201).json(newArt);
 });
 
 // Get flowers near a specific location

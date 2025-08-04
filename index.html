@@ -32,17 +32,34 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link rel='stylesheet' href='css/drawing.css'>
     <link rel='stylesheet' href='css/coordinates.css'>
 
-    <title>Location-Based AR Flowers</title>
+    <title>Placebook, No Relation</title>
   </head>
   <body>
     <header>
       <details open>
-        <summary>Location-Based AR Flowers</summary>
+        <summary>Placebook, No Relation</summary>
         <p>
-          Place virtual flowers that are tied to your real-world GPS location. Other users at the same location will see the flowers you've placed!
+          Turn the world into a living AR canvas. Place digital art at real-world locations for others to discover!
           <a class="back" href="./">Back</a>
         </p>
         <div id="status-message">Waiting for GPS...</div>
+        <div id="audience-control">
+          <label>Who can see your art: </label>
+          <select id="audience-selector">
+            <option value="public" selected>Everyone (Public)</option>
+            <option value="friends">Friends Only</option>
+          </select>
+        </div>
+        
+        <div id="art-type-control">
+          <label>Art type: </label>
+          <select id="art-type-selector">
+            <option value="flower" selected>Flower</option>
+            <option value="message">Text Message</option>
+            <option value="painting">Painting</option>
+            <option value="drawing">Drawing</option>
+          </select>
+        </div>
         <div id="coordinates-display"></div>
       </details>
     </header>
@@ -233,39 +250,92 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
       
-      // Update the scene with nearby flowers
+      // Update the scene with nearby art objects
       function updateFlowersInScene() {
-        // Clear existing GPS-based flowers (not user-placed ones)
+        // Clear existing GPS-based art objects (not user-placed ones)
         for (const obj of anchoredObjects) {
-          if (obj.isGpsFlower) {
+          if (obj.isGpsArt) {
             scene.removeNode(obj.anchoredObject);
           }
         }
         
-        // Filter to keep only user-placed flowers
-        anchoredObjects = anchoredObjects.filter(obj => !obj.isGpsFlower);
+        // Filter to keep only user-placed art objects
+        anchoredObjects = anchoredObjects.filter(obj => !obj.isGpsArt);
         
-        // Add nearby GPS flowers to the scene
-        for (const flowerData of nearbyFlowers) {
-          const flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
-          flower.scale = [0.3, 0.3, 0.3];
+        // Add nearby GPS art objects to the scene
+        for (const artData of nearbyFlowers) {
+          let artObject;
           
-          // Set the matrix from stored data
-          if (flowerData.matrix) {
-            flower.matrix = new Float32Array(flowerData.matrix);
+          // Create appropriate 3D object based on art type
+          switch(artData.artType || 'flower') {
+            case 'message':
+              // Create a text node for messages
+              artObject = new XRNode();
+              
+              // Create text element (using a simple cube as placeholder)
+              const textBox = new Cube({size: 0.15});
+              textBox.material = new SolidColorMaterial();
+              textBox.material.baseColor = [0.9, 0.9, 0.5, 1.0]; // Light yellow
+              
+              artObject.addNode(textBox);
+              
+              // Scale appropriately
+              artObject.scale = [1, 0.5, 0.1];
+              break;
+              
+            case 'painting':
+              // Create a painting object (flat surface)
+              artObject = new XRNode();
+              
+              // Create painting surface (using a simple cube as placeholder)
+              const canvas = new Cube({size: 0.2});
+              canvas.material = new SolidColorMaterial();
+              canvas.material.baseColor = [1, 1, 1, 1]; // White canvas
+              
+              artObject.addNode(canvas);
+              
+              // Scale to be flat like a canvas
+              artObject.scale = [1.5, 1.5, 0.05];
+              break;
+              
+            case 'drawing':
+              // Create a drawing object
+              artObject = new XRNode();
+              
+              // Create drawing surface (using a simple cube as placeholder)
+              const drawingSurface = new Cube({size: 0.15});
+              drawingSurface.material = new SolidColorMaterial();
+              drawingSurface.material.baseColor = [0.8, 0.8, 0.9, 1.0]; // Light blue
+              
+              artObject.addNode(drawingSurface);
+              
+              // Scale appropriately
+              artObject.scale = [1, 1, 0.05];
+              break;
+              
+            case 'flower':
+            default:
+              // Default to flower
+              artObject = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+              artObject.scale = [0.3, 0.3, 0.3];
           }
           
-          scene.addNode(flower);
+          // Set the matrix from stored data
+          if (artData.matrix) {
+            artObject.matrix = new Float32Array(artData.matrix);
+          }
+          
+          scene.addNode(artObject);
           
           // Add to anchored objects with GPS flag
           anchoredObjects.push({
-            anchoredObject: flower,
-            anchor: null, // No XR anchor for GPS flowers
-            isGpsFlower: true,
-            gpsData: flowerData
+            anchoredObject: artObject,
+            anchor: null, // No XR anchor for GPS art
+            isGpsArt: true,
+            gpsData: artData
           });
           
-          // Update coordinates display when adding flowers
+          // Update coordinates display when adding art objects
           updateCoordinatesDisplay();
         }
         
@@ -375,18 +445,52 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       const MAX_ANCHORED_OBJECTS = 30;
       let anchoredObjects = [];
-      function addAnchoredObjectsToScene(anchor) {
-        console.log("[DEBUG] Adding anchored flower to scene");
-        let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
-        flower.scale = [0.3, 0.3, 0.3]; // Increased scale to make flowers bigger
-        scene.addNode(flower);
+      function addAnchoredObjectsToScene(anchor, artType = 'flower', artData = {}) {
+        console.log(`[DEBUG] Adding anchored ${artType} to scene`);
+        
+        let artObject;
+        
+        // Create the appropriate 3D object based on art type
+        switch(artType) {
+          case 'message':
+            // Create a text node for messages
+            artObject = new Gltf2Node({url: 'media/gltf/cube/cube.gltf'}); // Placeholder
+            artObject.scale = [0.15, 0.15, 0.05];
+            
+            // Store the message text in the art object for potential display
+            artObject.messageText = artData.text || 'No text';
+            break;
+            
+          case 'painting':
+            // Create a painting object (using cube as placeholder)
+            artObject = new Gltf2Node({url: 'media/gltf/cube/cube.gltf'}); 
+            artObject.scale = [0.3, 0.3, 0.02]; // Flat like a canvas
+            break;
+            
+          case 'drawing':
+            // Create a drawing object (using cube as placeholder)
+            artObject = new Gltf2Node({url: 'media/gltf/cube/cube.gltf'});
+            artObject.scale = [0.2, 0.2, 0.02]; // Flat surface
+            break;
+            
+          case 'flower':
+          default:
+            // Default to flower
+            artObject = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+            artObject.scale = [0.3, 0.3, 0.3];
+        }
+        // Add the art object to the scene
+        scene.addNode(artObject);
+        
+        // Track the art object with its anchor and metadata
         anchoredObjects.push({
-          anchoredObject: flower,
+          anchoredObject: artObject,
           anchor: anchor,
-          isGpsFlower: false // This is a user-placed flower with XR anchor
+          artType: artType,
+          artData: artData
         });
 
-        console.log(`[DEBUG] Flower added, total anchored objects: ${anchoredObjects.length}`);
+        console.log(`[DEBUG] ${artType} added, total anchored objects: ${anchoredObjects.length}`);
 
         // For performance reasons if we add too many objects start
         // removing the oldest ones to keep the scene complexity
@@ -467,28 +571,55 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 pendingDrawing = null; // Clear pending drawing on error
               }
             } else {
-              // Check if GPS is available before placing a flower
+              // Check if GPS is available before placing art
               if (currentPosition) {
-                // Save the flower with GPS coordinates to server
+                // Save the art with GPS coordinates to server
                 const pose = reticleHitTestResult.getPose(xrRefSpace);
-                try {
-                  const flowerData = await flowerDB.saveFlower(currentPosition, Array.from(pose.transform.matrix));
-                  console.log(`[GPS] Saved flower at ${flowerData.latitude}, ${flowerData.longitude}`);
-                  updateStatusMessage(`Flower placed and saved to server!`);
-                  updateCoordinatesDisplay();
-                } catch (error) {
-                  console.error('[GPS] Error saving flower to server:', error);
-                  updateStatusMessage('Error saving flower to server. Placed locally only.');
+                
+                // Get the selected audience and art type from the UI
+                const audienceSelector = document.getElementById('audience-selector');
+                const audience = audienceSelector ? audienceSelector.value : 'public';
+                
+                const artTypeSelector = document.getElementById('art-type-selector');
+                const artType = artTypeSelector ? artTypeSelector.value : 'flower';
+                
+                // Prepare additional art data based on type
+                let artData = {};
+                
+                // For message type, prompt for text content
+                if (artType === 'message') {
+                  const messageText = prompt('Enter your message:', '');
+                  if (messageText) {
+                    artData = { text: messageText };
+                  } else {
+                    updateStatusMessage('Message canceled');
+                    return; // Exit if user cancels message input
+                  }
                 }
                 
-                // Add the flower to the scene as usual
-                addAnchoredObjectsToScene(anchor);
-              } else {
-                console.log("[GPS] GPS not available, placing local flower only");
-                updateStatusMessage("GPS not available, placing local flower only");
+                // Save the art with GPS data
+                flowerDB.saveArt(currentPosition, Array.from(pose.transform.matrix), audience, artType, artData)
+                  .then(savedArt => {
+                    console.log(`[GPS] ${savedArt.artType} saved with ID: ${savedArt.id}, audience: ${savedArt.audience}`);
+                    updateStatusMessage(`${savedArt.artType} placed and saved to the cloud (${savedArt.audience})!`);
+                  })
+                  .catch(error => {
+                    console.error('[GPS] Error saving art:', error);
+                    updateStatusMessage('Error saving art to the cloud');
+                  });
                 
-                // Add the flower to the scene as usual
-                addAnchoredObjectsToScene(anchor);
+                // Add the art object to the scene
+                addAnchoredObjectsToScene(anchor, artType, artData);
+              } else {
+                console.log("[GPS] GPS not available, placing local art only");
+                updateStatusMessage("GPS not available, placing local art only");
+                
+                // Get art type for local placement
+                const artTypeSelector = document.getElementById('art-type-selector');
+                const artType = artTypeSelector ? artTypeSelector.value : 'flower';
+                
+                // Add the art to the scene locally
+                addAnchoredObjectsToScene(anchor, artType);
               }
             }
           }).catch((error) => {

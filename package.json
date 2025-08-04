@@ -1,7 +1,7 @@
 {
-  "name": "ar-flowers-app",
+  "name": "placebook-no-relation",
   "version": "1.0.0",
-  "description": "Location-based AR Flowers with shared persistence",
+  "description": "Turn the world into a living AR canvas with location-based digital art",
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
