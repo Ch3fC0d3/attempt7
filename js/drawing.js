@@ -51,15 +51,15 @@ class DrawingManager {
     canvasWrapper.style.zIndex = '10000';
     canvasWrapper.style.backgroundColor = '#444';
     canvasWrapper.style.width = '100%';
-    canvasWrapper.style.maxWidth = '350px';
-    canvasWrapper.style.height = '300px';
+    canvasWrapper.style.maxWidth = '250px';
+    canvasWrapper.style.height = '200px';
     canvasWrapper.style.border = '3px solid #fff';
     canvasWrapper.style.borderRadius = '8px';
     this.container.appendChild(canvasWrapper);
     
     // Create canvas with inline HTML approach
     canvasWrapper.innerHTML = `
-      <canvas id="drawing-canvas" width="300" height="250" 
+      <canvas id="drawing-canvas" width="200" height="150" 
         style="background-color: #ffffff; border: 3px solid #ff0000; display: block; margin: 0 auto;">
         Your browser does not support canvas
       </canvas>
@@ -491,8 +491,8 @@ class DrawingManager {
     const currentDrawingData = this.drawingData;
     
     // Set fixed canvas dimensions
-    this.canvas.width = 300;
-    this.canvas.height = 250;
+    this.canvas.width = 200;
+    this.canvas.height = 150;
     
     // Clear canvas and make it white
     this.ctx.fillStyle = 'white';
