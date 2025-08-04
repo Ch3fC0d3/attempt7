@@ -39,34 +39,54 @@ class DrawingManager {
     this.container.style.zIndex = '9999';
     document.body.appendChild(this.container);
     
-    // Create a wrapper for the canvas
+    // Create a wrapper for the canvas - positioned in the middle
     const canvasWrapper = document.createElement('div');
     canvasWrapper.className = 'canvas-wrapper';
     canvasWrapper.style.display = 'flex';
     canvasWrapper.style.justifyContent = 'center';
     canvasWrapper.style.alignItems = 'center';
-    canvasWrapper.style.margin = '90px 0 10px 0'; // Add top margin to prevent toolbar overlap
-    canvasWrapper.style.overflow = 'visible';
+    canvasWrapper.style.flex = '1';
+    canvasWrapper.style.margin = '20px 0';
     canvasWrapper.style.position = 'relative';
-    canvasWrapper.style.zIndex = '1000'; // Lower than toolbar
-    canvasWrapper.style.backgroundColor = 'transparent'; // Transparent background
+    canvasWrapper.style.zIndex = '10000';
+    canvasWrapper.style.backgroundColor = '#444';
     canvasWrapper.style.width = '100%';
-    canvasWrapper.style.height = '60vh';
+    canvasWrapper.style.maxWidth = '500px';
+    canvasWrapper.style.height = '400px';
+    canvasWrapper.style.border = '3px solid #fff';
+    canvasWrapper.style.borderRadius = '8px';
     this.container.appendChild(canvasWrapper);
     
-    // Create canvas
+    // Create a visible placeholder first
+    const placeholder = document.createElement('div');
+    placeholder.style.width = '400px';
+    placeholder.style.height = '350px';
+    placeholder.style.backgroundColor = '#ffffff';
+    placeholder.style.border = '5px solid red';
+    placeholder.style.display = 'flex';
+    placeholder.style.justifyContent = 'center';
+    placeholder.style.alignItems = 'center';
+    placeholder.style.margin = '0 auto';
+    placeholder.textContent = 'CANVAS AREA';
+    placeholder.style.fontSize = '24px';
+    placeholder.style.fontWeight = 'bold';
+    placeholder.style.color = '#000';
+    canvasWrapper.appendChild(placeholder);
+    
+    // Create canvas - direct approach
     this.canvas = document.createElement('canvas');
+    this.canvas.width = 400;
+    this.canvas.height = 350;
     this.canvas.className = 'drawing-canvas';
-    this.canvas.style.width = '100%';
-    this.canvas.style.height = '400px';
-    this.canvas.style.backgroundColor = 'white';
-    this.canvas.style.border = '3px solid #000';
-    this.canvas.style.display = 'block';
-    this.canvas.style.maxWidth = '500px';
-    this.canvas.style.position = 'relative';
-    this.canvas.style.zIndex = '10000'; // Higher than everything
-    this.canvas.style.boxShadow = '0 0 10px rgba(255,255,255,0.5)';
-    canvasWrapper.appendChild(this.canvas);
+    this.canvas.style.backgroundColor = '#ffffff';
+    this.canvas.style.border = '2px solid #000';
+    this.canvas.style.position = 'absolute';
+    this.canvas.style.top = '0';
+    this.canvas.style.left = '0';
+    this.canvas.style.right = '0';
+    this.canvas.style.bottom = '0';
+    this.canvas.style.margin = 'auto';
+    placeholder.appendChild(this.canvas);
     
     // Create toolbar with enhanced visibility
     const toolbar = document.createElement('div');
@@ -246,6 +266,10 @@ class DrawingManager {
     
     // Initialize canvas context
     this.ctx = this.canvas.getContext('2d');
+    
+    // Debug message to check canvas initialization
+    console.log('Canvas initialized:', this.canvas);
+    console.log('Canvas dimensions:', this.canvas.width, 'x', this.canvas.height);
     
     // Add event listeners
     this.canvas.addEventListener('mousedown', this.startDrawing.bind(this));
@@ -473,16 +497,18 @@ class DrawingManager {
     // Get the current drawing data
     const currentDrawingData = this.drawingData;
     
-    // Set canvas dimensions
-    const containerWidth = Math.min(window.innerWidth - 40, 500); // Max width 500px, padding 40px
-    const containerHeight = Math.min(window.innerHeight * 0.7, 600); // 70% of window height, max 600px
-    
-    this.canvas.width = containerWidth;
-    this.canvas.height = containerHeight;
+    // Set fixed canvas dimensions
+    this.canvas.width = 400;
+    this.canvas.height = 350;
     
     // Clear canvas and make it white
     this.ctx.fillStyle = 'white';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // Draw a visible border directly on the canvas
+    this.ctx.strokeStyle = '#000';
+    this.ctx.lineWidth = 4;
+    this.ctx.strokeRect(2, 2, this.canvas.width - 4, this.canvas.height - 4);
     
     // Restore any existing drawing
     if (currentDrawingData) {
