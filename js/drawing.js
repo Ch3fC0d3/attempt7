@@ -32,20 +32,36 @@ class DrawingManager {
     this.canvas.className = 'drawing-canvas';
     this.container.appendChild(this.canvas);
     
-    // Create toolbar
+    // Create toolbar with enhanced visibility
     const toolbar = document.createElement('div');
     toolbar.className = 'drawing-toolbar';
+    toolbar.style.backgroundColor = '#333';
+    toolbar.style.padding = '15px';
+    toolbar.style.borderRadius = '8px';
+    toolbar.style.margin = '10px';
+    toolbar.style.display = 'flex';
+    toolbar.style.justifyContent = 'space-around';
+    toolbar.style.width = '80%';
     this.container.appendChild(toolbar);
     
-    // Add color picker
+    // Add color picker with wrapper for better visibility
+    const colorPickerWrapper = document.createElement('div');
+    colorPickerWrapper.className = 'drawing-tool';
+    colorPickerWrapper.style.overflow = 'hidden';
+    
     const colorPicker = document.createElement('input');
     colorPicker.type = 'color';
     colorPicker.value = this.currentColor;
-    colorPicker.className = 'drawing-tool color-tool';
+    colorPicker.className = 'color-tool';
+    colorPicker.style.opacity = '1';
+    colorPicker.style.cursor = 'pointer';
     colorPicker.addEventListener('input', (e) => {
       this.currentColor = e.target.value;
+      console.log('Color changed to:', this.currentColor);
     });
-    toolbar.appendChild(colorPicker);
+    
+    colorPickerWrapper.appendChild(colorPicker);
+    toolbar.appendChild(colorPickerWrapper);
     
     // Add size slider
     const sizeSlider = document.createElement('input');
@@ -142,9 +158,17 @@ class DrawingManager {
       this.initialize();
     }
     
+    // Make sure the container is visible and centered
+    this.container.style.display = 'flex';
+    this.container.style.alignItems = 'center';
+    this.container.style.justifyContent = 'center';
     this.container.classList.add('active');
+    
+    // Ensure the canvas is properly sized
     this.resizeCanvas();
     this.clearCanvas();
+    
+    console.log('Drawing UI shown');
   }
   
   /**
