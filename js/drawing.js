@@ -450,8 +450,19 @@ class DrawingManager {
     // Save the drawing data
     this.saveDrawingData();
     
+    // Log the drawing data to verify it's valid
+    console.log('[DEBUG] Drawing saved, data length:', this.drawingData ? this.drawingData.length : 'null');
+    console.log('[DEBUG] Drawing data starts with:', this.drawingData ? this.drawingData.substring(0, 30) + '...' : 'null');
+    
     // Hide the drawing UI
     this.hideDrawingUI();
+    
+    // Ensure we have valid drawing data before dispatching the event
+    if (!this.drawingData || !this.drawingData.startsWith('data:image')) {
+      console.error('[DEBUG] Invalid drawing data format');
+      alert('Error: Invalid drawing data format');
+      return;
+    }
     
     // Notify that the drawing is ready to be placed
     const event = new CustomEvent('drawingComplete', {
@@ -460,6 +471,7 @@ class DrawingManager {
       }
     });
     document.dispatchEvent(event);
+    console.log('[DEBUG] drawingComplete event dispatched');
   }
   
   /**

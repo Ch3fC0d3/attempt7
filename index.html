@@ -427,7 +427,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 
                 // Create a plane for the drawing (async)
                 try {
-                  console.log("[DEBUG] Creating drawing plane");
+                  console.log("[DEBUG] Creating drawing plane with data length:", pendingDrawing ? pendingDrawing.length : 'null');
+                  
+                  // Ensure we have valid drawing data
+                  if (!pendingDrawing) {
+                    console.error("[DEBUG] No pending drawing data available");
+                    updateStatusMessage("Error: No drawing data available");
+                    return;
+                  }
+                  
                   // Use async/await to ensure the drawing plane is fully created before proceeding
                   const drawingPlane = await createDrawingPlane(pendingDrawing);
                   console.log("[DEBUG] Drawing plane created successfully");
@@ -628,6 +636,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       
       // Create a plane with the drawing texture
       async function createDrawingPlane(drawingData) {
+        console.log("[DEBUG] createDrawingPlane called with data of length:", drawingData ? drawingData.length : 'null');
         const plane = new Node();
 
         // Create a material for the drawing
@@ -636,15 +645,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         material.blend = true; // Enable transparency
         material.blendFunc = [gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA];
 
+        // Validate drawing data
+        if (!drawingData || !drawingData.startsWith('data:image')) {
+          console.error("[DEBUG] Invalid drawing data format:", drawingData ? drawingData.substring(0, 20) : 'null');
+          updateStatusMessage("Error: Invalid drawing data format");
+          return plane;
+        }
+
         // Load the drawing image as a texture
         const texture = await new Promise((resolve) => {
           const img = new Image();
           img.onload = () => {
+            console.log("[DEBUG] Image loaded successfully, dimensions:", img.width, "x", img.height);
             const texture = new Texture(gl, { image: img });
             resolve(texture);
           };
-          img.onerror = () => {
-            console.error("[DEBUG] Failed to load drawing image for texture");
+          img.onerror = (error) => {
+            console.error("[DEBUG] Failed to load drawing image for texture:", error);
             resolve(null); // Resolve with null on error
           };
           img.src = drawingData;
@@ -652,6 +669,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (!texture) {
           console.error("[DEBUG] Could not create texture from drawing data.");
+          updateStatusMessage("Error: Could not create drawing texture");
           // Return an empty node or handle the error as needed
           return plane;
         }
@@ -774,6 +792,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         console.log(`[GPS] Scene updated with ${nearbyDrawings.length} GPS drawings`);
       }
       
+      // Add event listener for drawing completion
+      document.addEventListener('drawingComplete', (event) => {
+        console.log('[DEBUG] Drawing complete event received');
+        // Store the drawing data for placement
+        pendingDrawing = event.detail.drawingData;
+        
+        // Log the drawing data to verify it's valid
+        console.log('[DEBUG] Drawing data received:', pendingDrawing ? pendingDrawing.substring(0, 50) + '...' : 'null');
+        
+        // Notify user to place the drawing
+        updateStatusMessage('Drawing ready! Point at a surface to place it.');
+      });
+
       // Start the application
       initXR();
       addGpsControls();
