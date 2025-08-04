@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+    <link rel='stylesheet' href='css/common.css'>
+    <title>Simple WebXR AR Test</title>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Simple WebXR AR Test</summary>
+        <p>
+          This is a simplified version of the hit-test-anchors demo with fewer required features.
+          <br/>
+          This page tests if your device supports basic WebXR AR functionality.
+        </p>
+      </details>
+    </header>
+    <script type="module">
+      import {WebXRButton} from './js/util/webxr-button.js';
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {vec3} from './js/render/math/gl-matrix.js';
+
+      // XR globals.
+      let xrButton = null;
+      let xrSession = null;
+      let xrRefSpace = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let renderer = null;
+      let scene = new Scene();
+      scene.enableStats(false);
+
+      let sunflower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+      sunflower.scale = [0.1, 0.1, 0.1];
+      scene.addNode(sunflower);
+      
+      // Only placing a single sunflower in this simplified version
+      let flower = {
+        node: sunflower,
+      };
+
+      function initXR() {
+        xrButton = new WebXRButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession,
+          textEnterXR: "START AR",
+          textXRNotFound: "AR NOT SUPPORTED",
+          textExitXR: "EXIT AR"
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.isSessionSupported('immersive-ar')
+              .then((supported) => {
+            xrButton.enabled = supported;
+          });
+        }
+      }
+
+      function onRequestSession() {
+        // Simplified version with only 'local' as a required feature
+        return navigator.xr.requestSession('immersive-ar', {
+          requiredFeatures: ['local']
+        }).then((session) => {
+          xrSession = session;
+          xrButton.setSession(session);
+          onSessionStarted(session);
+        });
+      }
+
+      function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded);
+
+        if (!gl) {
+          gl = createWebGLContext({
+            xrCompatible: true
+          });
+
+          renderer = new Renderer(gl);
+
+          scene.setRenderer(renderer);
+        }
+
+        session.updateRenderState({
+          baseLayer: new XRWebGLLayer(session, gl)
+        });
+
+        session.requestReferenceSpace('local').then((refSpace) => {
+          xrRefSpace = refSpace;
+          session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      function onEndSession(session) {
+        session.end();
+      }
+
+      function onSessionEnded(event) {
+        xrSession = null;
+        xrButton.setSession(null);
+      }
+
+      function onXRFrame(time, frame) {
+        let session = frame.session;
+        let pose = frame.getViewerPose(xrRefSpace);
+
+        // Place the sunflower 1.5 meters in front of the viewer
+        if (pose) {
+          let position = vec3.fromValues(0, 0, -1.5);
+          vec3.transformMat4(position, position, pose.transform.matrix);
+          
+          flower.node.translation = position;
+        }
+
+        scene.startFrame();
+        session.requestAnimationFrame(onXRFrame);
+        scene.drawXRFrame(frame, pose);
+        scene.endFrame();
+      }
+
+      initXR();
+    </script>
+  </body>
+</html>
