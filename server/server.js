@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3005; // Changed port to avoid conflicts
 const FLOWERS_FILE = path.join(__dirname, 'flowers.json');
 const DRAWINGS_FILE = path.join(__dirname, 'drawings.json');
 
@@ -176,8 +176,15 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c; // Distance in meters
 }
 
-// Start server
-app.listen(PORT, () => {
+// Start server with better error handling
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log('Server URL: ' + (process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`));
+}).on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Error: Port ${PORT} is already in use by another process.`);
+    console.error('Please close that process or change the PORT number in server.js');
+  } else {
+    console.error('Server startup error:', err);
+  }
 });
