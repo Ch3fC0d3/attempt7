@@ -193,10 +193,30 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
 
+      // Debug counter to track frame rendering
+      let frameCounter = 0;
+      let lastLogTime = 0;
+      
       // Called every time a XRSession requests that a new frame be drawn.
       function onXRFrame(t, frame) {
+        frameCounter++;
+        
+        // Log debug info every 60 frames (approximately once per second)
+        const shouldLog = (t - lastLogTime) > 1000;
+        if (shouldLog) {
+          console.log(`[DEBUG] Frame ${frameCounter} at time ${t.toFixed(2)}ms`);
+          lastLogTime = t;
+        }
+        
         let session = frame.session;
         let pose = frame.getViewerPose(xrRefSpace);
+        
+        // Debug pose information
+        if (shouldLog) {
+          console.log(`[DEBUG] Pose available: ${pose !== null}`);
+          console.log(`[DEBUG] GL context lost: ${gl.isContextLost()}`);
+          console.log(`[DEBUG] Anchored objects: ${anchoredObjects.length}`);
+        }
 
         reticle.visible = false;
 
@@ -204,29 +224,61 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // and use the pose to display a reticle in the scene.
         if (xrHitTestSource && pose) {
           let hitTestResults = frame.getHitTestResults(xrHitTestSource);
+          if (shouldLog) {
+            console.log(`[DEBUG] Hit test results: ${hitTestResults.length}`);
+          }
+          
           if (hitTestResults.length > 0) {
             let pose = hitTestResults[0].getPose(xrRefSpace);
             reticle.visible = true;
             reticle.matrix = pose.transform.matrix;
             reticleHitTestResult = hitTestResults[0];
+            
+            if (shouldLog) {
+              console.log(`[DEBUG] Reticle visible: ${reticle.visible}`);
+              console.log(`[DEBUG] Reticle matrix: ${reticle.matrix[0].toFixed(2)},${reticle.matrix[5].toFixed(2)},${reticle.matrix[10].toFixed(2)}`);
+            }
           }
         }
 
+        // Debug tracked anchors
+        if (shouldLog) {
+          console.log(`[DEBUG] Tracked anchors: ${frame.trackedAnchors ? frame.trackedAnchors.size : 'N/A'}`);
+        }
+        
         for (const {anchoredObject, anchor} of anchoredObjects) {
           // only update the object's position if it's still in the list
           // of frame.trackedAnchors
           if (!frame.trackedAnchors.has(anchor)) {
+            if (shouldLog) {
+              console.log(`[DEBUG] Anchor not tracked anymore`);
+            }
             continue;
           }
           const anchorPose = frame.getPose(anchor.anchorSpace, xrRefSpace);
+          if (shouldLog && anchorPose) {
+            console.log(`[DEBUG] Anchor pose available: ${anchorPose !== null}`);
+          }
           anchoredObject.matrix = anchorPose.transform.matrix;
         }
 
         scene.startFrame();
+        
+        // Debug rendering
+        if (shouldLog) {
+          console.log(`[DEBUG] Before drawXRFrame - renderer ready: ${renderer !== null}`);
+        }
 
         session.requestAnimationFrame(onXRFrame);
 
-        scene.drawXRFrame(frame, pose);
+        try {
+          scene.drawXRFrame(frame, pose);
+          if (shouldLog) {
+            console.log(`[DEBUG] drawXRFrame completed successfully`);
+          }
+        } catch (error) {
+          console.error(`[ERROR] Failed to draw XR frame: ${error.message}`);
+        }
 
         scene.endFrame();
       }
