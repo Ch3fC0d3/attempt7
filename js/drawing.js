@@ -34,10 +34,11 @@ class DrawingManager {
     canvasWrapper.style.display = 'flex';
     canvasWrapper.style.justifyContent = 'center';
     canvasWrapper.style.alignItems = 'center';
-    canvasWrapper.style.margin = '70px 0 10px 0'; // Add top margin to prevent toolbar overlap
+    canvasWrapper.style.margin = '90px 0 10px 0'; // Add top margin to prevent toolbar overlap
     canvasWrapper.style.overflow = 'hidden';
     canvasWrapper.style.position = 'relative';
     canvasWrapper.style.zIndex = '1000'; // Lower than toolbar
+    canvasWrapper.style.backgroundColor = 'white'; // Add background color to canvas wrapper
     this.container.appendChild(canvasWrapper);
     
     // Create canvas
@@ -59,7 +60,7 @@ class DrawingManager {
     toolbar.style.alignItems = 'center';
     toolbar.style.width = '90%';
     toolbar.style.maxWidth = '500px';
-    toolbar.style.position = 'absolute';
+    toolbar.style.position = 'fixed';
     toolbar.style.top = '10px';
     toolbar.style.left = '50%';
     toolbar.style.transform = 'translateX(-50%)';
@@ -421,6 +422,25 @@ class DrawingManager {
    */
   getDrawingData() {
     return this.drawingData;
+  }
+  
+  /**
+   * Hide the drawing UI and return to AR view
+   */
+  hideDrawingUI() {
+    if (this.container) {
+      // Fade out animation
+      this.container.style.opacity = '0';
+      
+      // Remove the container after animation completes
+      setTimeout(() => {
+        if (this.container && this.container.parentNode) {
+          this.container.parentNode.removeChild(this.container);
+          this.container = null;
+        }
+        this.initialized = false;
+      }, 300);
+    }
   }
 }
 
