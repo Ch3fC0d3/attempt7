@@ -28,17 +28,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
     <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
     <link rel='stylesheet' href='css/common.css'>
+    <link rel='stylesheet' href='css/coordinates.css'>
 
-    <title>Hit Test with Anchors</title>
+    <title>Location-Based AR Flowers</title>
   </head>
   <body>
     <header>
       <details open>
-        <summary>Hit Test with Anchors</summary>
+        <summary>Location-Based AR Flowers</summary>
         <p>
-          This sample demonstrates using hit testing to find intersections on real-world surfaces and then using Anchors to attach a virtual object to that location.
+          Place virtual flowers that are tied to your real-world GPS location. Other users at the same location will see the flowers you've placed!
           <a class="back" href="./">Back</a>
         </p>
+        <div id="status-message">Waiting for GPS...</div>
+        <div id="coordinates-display"></div>
       </details>
     </header>
     <script type="module">
@@ -50,16 +53,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {DropShadowNode} from './js/render/nodes/drop-shadow.js';
       import {vec3} from './js/render/math/gl-matrix.js';
       import {Ray} from './js/render/math/ray.js';
+      import {geoService} from './js/geolocation.js';
+      import {flowerDB} from './js/database.js';
 
       // XR globals.
       let xrButton = null;
       let xrRefSpace = null;
       let xrViewerSpace = null;
       let xrHitTestSource = null;
-
+      
       // Debug variables
-      let frameCounter = 0;
-      let lastLogTime = 0;
+      // Note: frameCounter and lastLogTime are declared later in the file
+      
+      // GPS and location variables
+      let currentPosition = null;
+      let gpsInitialized = false;
+      let nearbyFlowers = [];
+      const GPS_UPDATE_INTERVAL = 10000; // 10 seconds
+      const NEARBY_THRESHOLD = 20; // 20 meters
 
       // WebGL scene globals.
       let gl = null;
@@ -91,7 +102,153 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Ensure the background is transparent for AR.
       scene.clear = false;
 
+      // Update status message
+      function updateStatusMessage(message) {
+        const statusElement = document.getElementById('status-message');
+        if (statusElement) {
+          statusElement.textContent = message;
+        }
+      }
+      
+      // Initialize geolocation
+      async function initGPS() {
+        updateStatusMessage('Requesting GPS permission...');
+        
+        if (!geoService.isAvailable()) {
+          updateStatusMessage('GPS not available on this device');
+          return false;
+        }
+        
+        try {
+          const permissionGranted = await geoService.requestPermission();
+          if (!permissionGranted) {
+            updateStatusMessage('GPS permission denied');
+            return false;
+          }
+          
+          geoService.startWatching();
+          
+          // Add position update listener
+          geoService.addPositionListener(handlePositionUpdate);
+          
+          // Get initial position
+          currentPosition = geoService.getLastPosition();
+          if (currentPosition) {
+            updateStatusMessage(`GPS active: ${currentPosition.coords.latitude.toFixed(6)}, ${currentPosition.coords.longitude.toFixed(6)}`);
+            loadNearbyFlowers();
+          } else {
+            updateStatusMessage('Waiting for GPS signal...');
+          }
+          
+          gpsInitialized = true;
+          return true;
+        } catch (error) {
+          console.error('[GPS] Error initializing GPS:', error);
+          updateStatusMessage('Error initializing GPS');
+          return false;
+        }
+      }
+      
+      // Handle position updates
+      function handlePositionUpdate(position) {
+        currentPosition = position;
+        updateStatusMessage(`GPS: ${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`);
+        loadNearbyFlowers();
+        updateCoordinatesDisplay();
+      }
+      
+      // Update the coordinates display at the bottom of the screen
+      function updateCoordinatesDisplay() {
+        const coordsElement = document.getElementById('coordinates-display');
+        if (!coordsElement) return;
+        
+        // Clear previous content
+        coordsElement.innerHTML = '';
+        
+        // Add current position
+        if (currentPosition) {
+          const currentPosElement = document.createElement('div');
+          currentPosElement.innerHTML = `<strong>Your Position:</strong> ${currentPosition.coords.latitude.toFixed(6)}, ${currentPosition.coords.longitude.toFixed(6)}, Alt: ${currentPosition.coords.altitude ? currentPosition.coords.altitude.toFixed(2) + 'm' : 'N/A'}`;
+          coordsElement.appendChild(currentPosElement);
+        }
+        
+        // Add flower positions
+        if (anchoredObjects && anchoredObjects.length > 0) {
+          const flowersList = document.createElement('div');
+          flowersList.innerHTML = '<strong>Flower Locations:</strong> ';
+          
+          let count = 0;
+          for (const obj of anchoredObjects) {
+            if (obj.isGpsFlower && obj.gpsData) {
+              count++;
+              const flowerElement = document.createElement('div');
+              flowerElement.textContent = `Flower ${count}: ${obj.gpsData.latitude.toFixed(6)}, ${obj.gpsData.longitude.toFixed(6)}`;
+              flowersList.appendChild(flowerElement);
+            }
+          }
+          
+          if (count > 0) {
+            coordsElement.appendChild(flowersList);
+          }
+        }
+      }
+      
+      // Load nearby flowers based on current position
+      function loadNearbyFlowers() {
+        if (!currentPosition) return;
+        
+        nearbyFlowers = flowerDB.getNearbyFlowers(currentPosition, NEARBY_THRESHOLD);
+        console.log(`[GPS] Found ${nearbyFlowers.length} nearby flowers`);
+        
+        // Update status with flower count
+        updateStatusMessage(`GPS: ${currentPosition.coords.latitude.toFixed(6)}, ${currentPosition.coords.longitude.toFixed(6)} | Nearby flowers: ${nearbyFlowers.length}`);
+        
+        // Update the scene with the nearby flowers
+        updateFlowersInScene();
+      }
+      
+      // Update the scene with nearby flowers
+      function updateFlowersInScene() {
+        // Clear existing GPS-based flowers (not user-placed ones)
+        for (const obj of anchoredObjects) {
+          if (obj.isGpsFlower) {
+            scene.removeNode(obj.anchoredObject);
+          }
+        }
+        
+        // Filter to keep only user-placed flowers
+        anchoredObjects = anchoredObjects.filter(obj => !obj.isGpsFlower);
+        
+        // Add nearby GPS flowers to the scene
+        for (const flowerData of nearbyFlowers) {
+          const flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+          flower.scale = [0.3, 0.3, 0.3];
+          
+          // Set the matrix from stored data
+          if (flowerData.matrix) {
+            flower.matrix = new Float32Array(flowerData.matrix);
+          }
+          
+          scene.addNode(flower);
+          
+          // Add to anchored objects with GPS flag
+          anchoredObjects.push({
+            anchoredObject: flower,
+            anchor: null, // No XR anchor for GPS flowers
+            isGpsFlower: true,
+            gpsData: flowerData
+          });
+          
+          // Update coordinates display when adding flowers
+          updateCoordinatesDisplay();
+        }
+        
+        console.log(`[GPS] Scene updated with ${nearbyFlowers.length} GPS flowers`);
+      }
+      
       function initXR() {
+        // Initialize GPS first
+        initGPS();
         xrButton = new WebXRButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession,
@@ -197,7 +354,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         scene.addNode(flower);
         anchoredObjects.push({
           anchoredObject: flower,
-          anchor: anchor
+          anchor: anchor,
+          isGpsFlower: false // This is a user-placed flower with XR anchor
         });
 
         console.log(`[DEBUG] Flower added, total anchored objects: ${anchoredObjects.length}`);
@@ -206,10 +364,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // removing the oldest ones to keep the scene complexity
         // from growing too much.
         if (anchoredObjects.length > MAX_ANCHORED_OBJECTS) {
-          let objectToRemove = anchoredObjects.shift();
-          scene.removeNode(objectToRemove.anchoredObject);
-          objectToRemove.anchor.delete();
-          console.log("[DEBUG] Removed oldest flower due to limit");
+          // Find the oldest non-GPS flower to remove
+          const index = anchoredObjects.findIndex(obj => !obj.isGpsFlower);
+          if (index !== -1) {
+            let objectToRemove = anchoredObjects.splice(index, 1)[0];
+            scene.removeNode(objectToRemove.anchoredObject);
+            if (objectToRemove.anchor) {
+              objectToRemove.anchor.delete();
+            }
+            console.log("[DEBUG] Removed oldest flower due to limit");
+          }
         }
       }
 
@@ -224,12 +388,29 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // Create an anchor.
           reticleHitTestResult.createAnchor().then((anchor) => {
             console.log("[DEBUG] Anchor created successfully");
+            
+            // Check if GPS is available before placing a flower
+            if (gpsInitialized && currentPosition) {
+              // Save the flower with GPS coordinates
+              const pose = reticleHitTestResult.getPose(xrRefSpace);
+              const flowerData = flowerDB.saveFlower(currentPosition, Array.from(pose.transform.matrix));
+              console.log(`[GPS] Saved flower at ${flowerData.latitude}, ${flowerData.longitude}`);
+              updateStatusMessage(`Flower placed at ${flowerData.latitude.toFixed(6)}, ${flowerData.longitude.toFixed(6)}`);
+              updateCoordinatesDisplay();
+            } else {
+              console.log("[GPS] GPS not available, placing local flower only");
+              updateStatusMessage("GPS not available, placing local flower only");
+            }
+            
+            // Add the flower to the scene as usual
             addAnchoredObjectsToScene(anchor);
           }, (error) => {
             console.error("[DEBUG] Could not create anchor: " + error);
+            updateStatusMessage("Could not place flower: " + error);
           });
         } else {
           console.log("[DEBUG] Reticle not visible, cannot place flower");
+          updateStatusMessage("Point at a surface to place a flower");
         }
       }
 
@@ -321,8 +502,38 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         scene.endFrame();
       }
 
-      // Start the XR application.
+      // Add UI controls for GPS features
+      function addGpsControls() {
+        const header = document.querySelector('header');
+        
+        // Create clear button
+        const clearButton = document.createElement('button');
+        clearButton.textContent = 'Clear All GPS Flowers';
+        clearButton.style.marginTop = '10px';
+        clearButton.addEventListener('click', () => {
+          flowerDB.clearAll();
+          loadNearbyFlowers(); // Refresh the scene
+          updateStatusMessage('All GPS flowers cleared');
+        });
+        
+        // Create refresh button
+        const refreshButton = document.createElement('button');
+        refreshButton.textContent = 'Refresh GPS Flowers';
+        refreshButton.style.marginTop = '10px';
+        refreshButton.style.marginLeft = '10px';
+        refreshButton.addEventListener('click', () => {
+          loadNearbyFlowers();
+          updateStatusMessage('GPS flowers refreshed');
+        });
+        
+        // Add buttons to header
+        header.appendChild(clearButton);
+        header.appendChild(refreshButton);
+      }
+      
+      // Start the application
       initXR();
+      addGpsControls();
     </script>
   </body>
 </html>

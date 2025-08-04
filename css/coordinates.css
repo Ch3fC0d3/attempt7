@@ -1,0 +1,20 @@
+#coordinates-display {
+  position: fixed;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  padding: 5px 10px;
+  font-size: 14px;
+  text-align: center;
+  z-index: 1000;
+}
+
+#coordinates-display div {
+  margin: 5px 0;
+}
+
+#coordinates-display strong {
+  color: #ffcc00;
+}
