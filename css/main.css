@@ -1,0 +1,199 @@
+/* Main CSS file for Anchor Flowers AR application */
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+}
+
+#overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  color: white;
+}
+
+#overlay-content {
+  background-color: white;
+  color: black;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 80%;
+  max-height: 80%;
+  overflow-y: auto;
+}
+
+#overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+#overlay-title {
+  font-size: 1.5em;
+  font-weight: bold;
+}
+
+#overlay-back {
+  color: blue;
+  cursor: pointer;
+  text-align: right;
+}
+
+#status-message {
+  position: fixed;
+  bottom: 20px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 10px;
+  font-size: 16px;
+  z-index: 100;
+}
+
+#coordinates-display {
+  position: fixed;
+  bottom: 60px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 5px;
+  font-size: 12px;
+  z-index: 100;
+}
+
+#header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 100;
+}
+
+.button {
+  background-color: #4CAF50;
+  border: none;
+  color: white;
+  padding: 10px 15px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+/* Drawing UI styles */
+#drawing-ui {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+#drawing-canvas-container {
+  position: relative;
+  width: 80%;
+  height: 60%;
+  background-color: white;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+#drawing-canvas {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+#drawing-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+  background-color: #333;
+  width: 80%;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.drawing-tool {
+  margin: 0 5px;
+  padding: 5px 10px;
+  background-color: #555;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.drawing-tool.active {
+  background-color: #4CAF50;
+}
+
+#color-picker {
+  width: 30px;
+  height: 30px;
+  border: none;
+  padding: 0;
+  background: none;
+}
+
+#size-slider {
+  width: 100px;
+  margin: 0 10px;
+}
+
+.drawing-action {
+  margin: 0 5px;
+  padding: 5px 10px;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+#save-drawing {
+  background-color: #4CAF50;
+}
+
+#clear-drawing {
+  background-color: #f44336;
+}
+
+#cancel-drawing {
+  background-color: #555;
+}
