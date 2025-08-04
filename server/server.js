@@ -7,10 +7,14 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const FLOWERS_FILE = path.join(__dirname, 'flowers.json');
+const DRAWINGS_FILE = path.join(__dirname, 'drawings.json');
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+
+// Serve static files from the root directory
+app.use(express.static(path.join(__dirname, '..')));
 
 // Initialize flowers data
 let flowers = [];
@@ -28,6 +32,22 @@ try {
   console.error('Error loading flowers data:', err);
 }
 
+// Initialize drawings data
+let drawings = [];
+try {
+  if (fs.existsSync(DRAWINGS_FILE)) {
+    const data = fs.readFileSync(DRAWINGS_FILE, 'utf8');
+    drawings = JSON.parse(data);
+    console.log(`Loaded ${drawings.length} drawings from storage`);
+  } else {
+    // Create empty file if it doesn't exist
+    fs.writeFileSync(DRAWINGS_FILE, JSON.stringify(drawings));
+    console.log('Created new drawings storage file');
+  }
+} catch (err) {
+  console.error('Error loading drawings data:', err);
+}
+
 // Save flowers data to file
 function saveFlowers() {
   try {
@@ -35,6 +55,16 @@ function saveFlowers() {
     console.log(`Saved ${flowers.length} flowers to storage`);
   } catch (err) {
     console.error('Error saving flowers data:', err);
+  }
+}
+
+// Save drawings data to file
+function saveDrawings() {
+  try {
+    fs.writeFileSync(DRAWINGS_FILE, JSON.stringify(drawings));
+    console.log(`Saved ${drawings.length} drawings to storage`);
+  } catch (err) {
+    console.error('Error saving drawings data:', err);
   }
 }
 
@@ -87,6 +117,36 @@ app.delete('/api/flowers', (req, res) => {
   flowers = [];
   saveFlowers();
   res.json({ message: 'All flowers deleted' });
+});
+
+// Drawing routes
+app.post('/api/drawings', (req, res) => {
+  const newDrawing = req.body;
+  if (!newDrawing.latitude || !newDrawing.longitude || !newDrawing.imageData) {
+    return res.status(400).json({ error: 'Missing required drawing data' });
+  }
+  newDrawing.id = `drawing_${Date.now()}`;
+  drawings.push(newDrawing);
+  saveDrawings();
+  res.status(201).json(newDrawing);
+});
+
+app.get('/api/drawings/nearby', (req, res) => {
+  const { lat, lng, distance = 20 } = req.query;
+  if (!lat || !lng) {
+    return res.status(400).json({ error: 'Missing latitude or longitude' });
+  }
+  const nearbyDrawings = drawings.filter(drawing => {
+    const drawingDistance = calculateDistance(parseFloat(lat), parseFloat(lng), drawing.latitude, drawing.longitude);
+    return drawingDistance <= parseFloat(distance);
+  });
+  res.json(nearbyDrawings);
+});
+
+app.delete('/api/drawings', (req, res) => {
+  drawings = [];
+  saveDrawings();
+  res.json({ message: 'All drawings deleted' });
 });
 
 // Calculate distance between two GPS coordinates in meters using the Haversine formula

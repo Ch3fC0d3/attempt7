@@ -277,6 +277,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });
+        const info = document.createElement('div');
+        info.className = 'session-info';
+        document.querySelector('header').appendChild(info);
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
@@ -286,12 +289,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               });
         }
         
-        // Listen for drawing completion event
-        document.addEventListener('drawingComplete', (event) => {
-          console.log('Drawing completed, ready to place in AR');
-          pendingDrawing = event.detail.drawingData;
-          updateStatusMessage('Drawing ready! Tap to place it');
-        });
+        // We must have a DrawingManager instance to use the drawing functionality.
+        (function() {
+          // Initialize the DrawingManager
+          window.DrawingManager = new DrawingManager();
+          window.DrawingManager.initialize();
+
+          // Add GPS and Drawing controls to the UI
+          addGpsControls();
+
+          // Listen for the custom event
+          document.addEventListener('drawingComplete', (e) => {
+            console.log('[DEBUG] Drawing complete event received');
+            pendingDrawing = e.detail.drawingData;
+            updateStatusMessage('Drawing ready! Tap to place it');
+          });
+        })();
       }
 
       function onRequestSession() {
@@ -463,6 +476,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                     updateStatusMessage('Error saving drawing. Placed locally only.');
                   }
                   
+                  // Get the pose from the hit test result to position the drawing
+                  const pose = reticleHitTestResult.getPose(xrRefSpace);
+                  if (pose) {
+                    drawingNode.matrix = pose.transform.matrix;
+                    console.log('[DEBUG] Drawing position set from anchor');
+                  } else {
+                    console.error('[DEBUG] Could not get pose for drawing placement');
+                  }
+
                   // Add to anchored objects
                   anchoredObjects.push({
                     anchoredObject: drawingNode,
@@ -603,6 +625,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // Add GPS controls to the header
       function addGpsControls() {
+
         const header = document.querySelector('header');
         
         // Create refresh button
