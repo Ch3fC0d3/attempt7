@@ -148,7 +148,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onEndSession(session) {
-        anchoredObjects.clear();
+        // Use proper array methods instead of clear() which doesn't exist on arrays
+        anchoredObjects = [];
         xrHitTestSource.cancel();
         xrHitTestSource = null;
         session.end();
