@@ -421,13 +421,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             if (pendingDrawing) {
               console.log("[DEBUG] Placing drawing at hit location");
               
-              if (currentPosition) {
-                // Use the same approach as flowers - add drawing to scene first
-                const drawingNode = await addDrawingToScene(anchor, pendingDrawing);
-                
-                if (drawingNode) {
-                  // Save the drawing with GPS coordinates
-                  try {
+              // Always add drawing to scene first, regardless of GPS availability
+              const drawingNode = await addDrawingToScene(anchor, pendingDrawing);
+              console.log("[DEBUG] Drawing node created:", drawingNode ? "success" : "failed");
+              
+              if (drawingNode) {
+                // Try to save with GPS if available, but don't block placement
+                try {
+                  if (currentPosition) {
+                    // If GPS is available, save with coordinates
                     const drawingData = {
                       latitude: currentPosition.coords.latitude,
                       longitude: currentPosition.coords.longitude,
@@ -441,19 +443,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                     console.log(`[GPS] Drawing saved at ${drawingData.latitude}, ${drawingData.longitude}`);
                     updateStatusMessage('Drawing placed and saved!');
                     
-                    // Clear the pending drawing
-                    pendingDrawing = null;
-                    
                     // Refresh nearby drawings (async)
                     await loadNearbyDrawings();
-                  } catch (error) {
-                    console.error('[GPS] Error saving drawing:', error);
-                    updateStatusMessage('Error saving drawing. Placed locally only.');
+                  } else {
+                    // No GPS, but still place the drawing locally
+                    console.log("[DEBUG] Drawing placed locally only (no GPS)");
+                    updateStatusMessage('Drawing placed locally (GPS not available)');
                   }
+                  
+                  // Clear the pending drawing in either case
+                  pendingDrawing = null;
+                } catch (error) {
+                  console.error('[DEBUG] Error handling drawing placement:', error);
+                  updateStatusMessage('Drawing placed locally only.');
+                  pendingDrawing = null;
                 }
               } else {
-                console.log("[GPS] GPS not available, cannot place drawing");
-                updateStatusMessage("GPS not available, cannot place drawing");
+                console.error("[DEBUG] Failed to create drawing node");
+                updateStatusMessage("Error creating drawing. Please try again.");
               }
             } else {
               // Check if GPS is available before placing a flower
