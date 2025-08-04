@@ -60,7 +60,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {Mesh} from './js/render/core/mesh.js';
       import {geoService} from './js/geolocation.js';
       import {flowerDB} from './js/database.js';
-      import {drawing} from './js/drawing.js';
+      import './js/drawing.js'; // Import for side effects only (creates global DrawingManager)
 
       // XR globals.
       let xrButton = null;
