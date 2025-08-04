@@ -21,31 +21,41 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 -->
 <html>
   <head>
-    <meta charset='utf-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
-    <meta name='mobile-web-app-capable' content='yes'>
-    <meta name='apple-mobile-web-app-capable' content='yes'>
-    <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
-    <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
-    <link rel='stylesheet' href='css/common.css'>
-    <link rel='stylesheet' href='css/main.css'>
-    <link rel='stylesheet' href='css/drawing.css'>
-    <link rel='stylesheet' href='css/coordinates.css'>
-
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon-180x180.png">
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/drawing.css">
+    <link rel="stylesheet" href="css/coordinates.css">
+    <style>
+      .overlay {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background-color: transparent;
+        z-index: 10;
+        pointer-events: none;
+      }
+    </style>
     <title>Location-Based AR Flowers</title>
   </head>
   <body>
     <header>
       <details open>
-        <summary>Location-Based AR Flowers</summary>
-        <p>
-          Place virtual flowers that are tied to your real-world GPS location. Other users at the same location will see the flowers you've placed!
-          <a class="back" href="./">Back</a>
-        </p>
-        <div id="status-message">Waiting for GPS...</div>
-        <div id="coordinates-display"></div>
+        <summary>Anchor Flowers</summary>
+        <p>This sample demonstrates how to use anchors to attach virtual objects to real world surfaces.</p>
+        <p>Tap on any surface to place a sunflower. The flowers will remain exactly where you place them, tracking the real world surface as you move your device.</p>
+        <p><a class="back" href="./">Back</a></p>
       </details>
     </header>
+    <div id="overlay" class="overlay"></div>
+    <div id="status-message">Waiting for GPS...</div>
+    <div id="coordinates-display"></div>
     <script type="module">
       import {WebXRButton} from './js/util/webxr-button.js';
       import {Scene} from './js/render/scenes/scene.js';
@@ -295,14 +305,36 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onRequestSession() {
         console.log("[DEBUG] Requesting AR session with hit-test and anchors");
-        return navigator.xr.requestSession('immersive-ar', {requiredFeatures: ['local', 'hit-test', 'anchors']})
-                           .then((session) => {
-          console.log("[DEBUG] AR session created successfully");
-          xrButton.setSession(session);
-          onSessionStarted(session);
-        }).catch(error => {
-          console.error(`[DEBUG] Error creating AR session: ${error.message}`);
-        });
+        
+        // First check for camera permissions
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          // Request camera permission first to ensure video works
+          navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+              console.log("[DEBUG] Camera permission granted");
+              // Stop the stream immediately, we just needed the permission
+              stream.getTracks().forEach(track => track.stop());
+              
+              // Now request the XR session
+              return navigator.xr.requestSession('immersive-ar', {
+                requiredFeatures: ['local', 'hit-test', 'anchors'],
+                optionalFeatures: ['dom-overlay'],
+                domOverlay: {root: document.getElementById('overlay')}
+              });
+            })
+            .then((session) => {
+              console.log("[DEBUG] AR session created successfully");
+              xrButton.setSession(session);
+              onSessionStarted(session);
+            })
+            .catch(error => {
+              console.error(`[DEBUG] Error creating AR session: ${error.message}`);
+              updateStatusMessage(`Error: ${error.message}. Please reload and try again.`);
+            });
+        } else {
+          console.error("[DEBUG] getUserMedia not supported");
+          updateStatusMessage("Camera access not supported by your browser");
+        }
       }
 
       function onSessionStarted(session) {
