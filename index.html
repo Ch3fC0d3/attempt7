@@ -289,22 +289,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               });
         }
         
-        // We must have a DrawingManager instance to use the drawing functionality.
-        (function() {
-          // Initialize the DrawingManager
-          window.DrawingManager = new DrawingManager();
-          window.DrawingManager.initialize();
 
-          // Add GPS and Drawing controls to the UI
-          addGpsControls();
-
-          // Listen for the custom event
-          document.addEventListener('drawingComplete', (e) => {
-            console.log('[DEBUG] Drawing complete event received');
-            pendingDrawing = e.detail.drawingData;
-            updateStatusMessage('Drawing ready! Tap to place it');
-          });
-        })();
       }
 
       function onRequestSession() {
@@ -826,9 +811,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         console.log(`[GPS] Scene updated with ${nearbyDrawings.length} GPS drawings`);
       }
       
-      // Start the application
-      initXR();
-      addGpsControls();
+      // Initialize the application after the DOM is ready
+      document.addEventListener('DOMContentLoaded', () => {
+        // Initialize the DrawingManager
+        window.DrawingManager = new DrawingManager();
+        window.DrawingManager.initialize();
+
+        // Listen for the custom event for when a drawing is saved
+        document.addEventListener('drawingComplete', (e) => {
+          console.log('[DEBUG] Drawing complete event received');
+          pendingDrawing = e.detail.drawingData;
+          updateStatusMessage('Drawing ready! Tap to place it');
+        });
+
+        // Add GPS and Drawing controls to the UI
+        addGpsControls();
+
+        // Initialize the WebXR button and session management
+        initXR();
+      });
     </script>
   </body>
 </html>
