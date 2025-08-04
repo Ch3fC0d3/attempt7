@@ -27,10 +27,21 @@ class DrawingManager {
     this.container.className = 'drawing-container';
     document.body.appendChild(this.container);
     
+    // Create a wrapper for the canvas
+    const canvasWrapper = document.createElement('div');
+    canvasWrapper.className = 'canvas-wrapper';
+    canvasWrapper.style.flex = '1';
+    canvasWrapper.style.display = 'flex';
+    canvasWrapper.style.justifyContent = 'center';
+    canvasWrapper.style.alignItems = 'center';
+    canvasWrapper.style.margin = '10px 0';
+    canvasWrapper.style.overflow = 'hidden';
+    this.container.appendChild(canvasWrapper);
+    
     // Create canvas
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'drawing-canvas';
-    this.container.appendChild(this.canvas);
+    canvasWrapper.appendChild(this.canvas);
     
     // Create toolbar with enhanced visibility
     const toolbar = document.createElement('div');
@@ -42,7 +53,9 @@ class DrawingManager {
     toolbar.style.display = 'flex';
     toolbar.style.justifyContent = 'space-around';
     toolbar.style.width = '80%';
-    this.container.appendChild(toolbar);
+    toolbar.style.position = 'relative';
+    toolbar.style.zIndex = '1001'; // Higher than canvas
+    this.container.insertBefore(toolbar, canvasWrapper); // Place toolbar before canvas
     
     // Add color picker with wrapper for better visibility
     const colorPickerWrapper = document.createElement('div');
@@ -107,9 +120,15 @@ class DrawingManager {
     toolbar.appendChild(clearButton);
     
     // Add action buttons
-    const actions = document.createElement('div');
-    actions.className = 'drawing-actions';
-    this.container.appendChild(actions);
+    const actionButtons = document.createElement('div');
+    actionButtons.className = 'action-buttons';
+    actionButtons.style.display = 'flex';
+    actionButtons.style.justifyContent = 'space-around';
+    actionButtons.style.width = '80%';
+    actionButtons.style.margin = '10px';
+    actionButtons.style.position = 'relative';
+    actionButtons.style.zIndex = '1001'; // Higher than canvas
+    this.container.appendChild(actionButtons); // Place at the bottom
     
     // Add save button
     const saveButton = document.createElement('button');
@@ -118,7 +137,7 @@ class DrawingManager {
     saveButton.addEventListener('click', () => {
       this.saveDrawing();
     });
-    actions.appendChild(saveButton);
+    actionButtons.appendChild(saveButton);
     
     // Add cancel button
     const cancelButton = document.createElement('button');
@@ -127,7 +146,7 @@ class DrawingManager {
     cancelButton.addEventListener('click', () => {
       this.hideDrawingUI();
     });
-    actions.appendChild(cancelButton);
+    actionButtons.appendChild(cancelButton);
     
     // Initialize canvas context
     this.ctx = this.canvas.getContext('2d');
