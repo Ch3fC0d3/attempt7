@@ -608,20 +608,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         console.log("[DEBUG] createDrawingPlane called with data of length:", drawingData ? drawingData.length : 'null');
         const plane = new Node();
 
-        // Create a material for the drawing
+        // Create a material for the drawing - using a simpler material approach
         const material = new Material();
         
-        // Make sure the drawing is visible
-        material.depthTest = true; // Enable depth testing
+        // Fix rendering order/layer issues
+        material.depthTest = false; // Disable depth testing to ensure visibility
         material.blend = true; // Enable transparency
-        material.blendFunc = [gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA];
+        material.blendFunc = [gl.ONE, gl.ONE_MINUS_SRC_ALPHA]; // Use ONE for source factor
         material.cullMode = gl.NONE; // Don't cull any faces
+        material.renderOrder = 1000; // High render order to ensure it renders on top
         
-        // Set material properties to make it more visible
+        // Set material properties for maximum visibility
         material.baseColorFactor = [1.0, 1.0, 1.0, 1.0]; // Full opacity
         material.metallicFactor = 0.0; // Non-metallic
         material.roughnessFactor = 1.0; // Fully rough
-        material.emissiveFactor = [0.2, 0.2, 0.2]; // Slight glow
+        material.emissiveFactor = [1.0, 1.0, 1.0]; // Maximum glow
 
         // Validate drawing data
         if (!drawingData || !drawingData.startsWith('data:image')) {
@@ -658,27 +659,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         material.baseColorTexture = texture;
 
-        // Create a mesh with the textured material
+        // Create a simpler quad for the drawing
         const mesh = new Mesh(gl, {
           vertices: [
-            -1.0, -1.0, 0.0,
-             1.0, -1.0, 0.0,
-             1.0,  1.0, 0.0,
-            -1.0,  1.0, 0.0,
+            -1.0, -1.0, 0.0,  // Bottom left
+             1.0, -1.0, 0.0,  // Bottom right
+             1.0,  1.0, 0.0,  // Top right
+            -1.0,  1.0, 0.0,  // Top left
           ],
           texcoords: [
-            0.0, 1.0,
-            1.0, 1.0,
-            1.0, 0.0,
-            0.0, 0.0,
+            0.0, 0.0,  // Bottom left
+            1.0, 0.0,  // Bottom right
+            1.0, 1.0,  // Top right
+            0.0, 1.0,  // Top left
           ],
           normals: [
-            0.0, 0.0, 1.0,
+            0.0, 0.0, 1.0,  // All normals point forward
             0.0, 0.0, 1.0,
             0.0, 0.0, 1.0,
             0.0, 0.0, 1.0,
           ],
-          indices: [0, 1, 2, 0, 2, 3],
+          indices: [0, 1, 2, 0, 2, 3],  // Two triangles forming a quad
           material: material,
         });
 
@@ -688,6 +689,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         
         // Add the drawing node to the plane
         plane.addNode(drawingNode);
+        
+        // Set renderOrder for the plane to ensure it renders on top
+        plane.renderOrder = 1000;
         
         // Log success
         console.log("[DEBUG] Drawing plane created successfully with mesh and texture");
@@ -809,20 +813,56 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // Create a drawing node
           const drawingNode = new Node();
           
+          // Set high render order for the drawing node
+          drawingNode.renderOrder = 2000;
+          
           // Create a plane for the drawing
           const drawingPlane = await createDrawingPlane(drawingData);
           
           // Make sure the drawing is visible and properly scaled
           drawingPlane.scale = [0.5, 0.5, 0.5]; // Increased scale for better visibility
           
-          // Rotate the drawing to face the camera (Y-up orientation)
-          drawingPlane.rotation = [Math.PI/2, 0, 0]; // Rotate 90 degrees around X axis
+          // Try a different orientation - no rotation
+          // This will make the drawing appear flat on the surface
           
           // Add the drawing plane to the drawing node
           drawingNode.addNode(drawingPlane);
           
-          // Add the drawing to the scene
+          // Add the drawing directly to the scene first for visibility testing
           scene.addNode(drawingNode);
+          
+          // Create a simple colored cube as a test marker
+          const testCube = new Mesh(gl, {
+            vertices: [
+              // Front face
+              -0.1, -0.1,  0.1,
+               0.1, -0.1,  0.1,
+               0.1,  0.1,  0.1,
+              -0.1,  0.1,  0.1,
+              // Back face
+              -0.1, -0.1, -0.1,
+              -0.1,  0.1, -0.1,
+               0.1,  0.1, -0.1,
+               0.1, -0.1, -0.1,
+            ],
+            indices: [
+              0, 1, 2,    0, 2, 3, // front
+              4, 5, 6,    4, 6, 7, // back
+              5, 3, 2,    5, 2, 6, // top
+              4, 7, 1,    4, 1, 0, // bottom
+              7, 6, 2,    7, 2, 1, // right
+              4, 0, 3,    4, 3, 5  // left
+            ],
+            material: new Material({
+              baseColorFactor: [1.0, 0.0, 0.0, 1.0] // Bright red
+            })
+          });
+          
+          // Add the test cube to the drawing node
+          const testNode = new Node();
+          testNode.addNode(testCube);
+          testNode.renderOrder = 3000; // Even higher render order
+          drawingNode.addNode(testNode);
           
           // Add to anchored objects with specific type
           anchoredObjects.push({
@@ -832,7 +872,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             isGpsFlower: false
           });
           
-          console.log("[DEBUG] Drawing added to scene successfully");
+          console.log("[DEBUG] Drawing added to scene successfully with test cube");
           return drawingNode;
         } catch (error) {
           console.error("[DEBUG] Error adding drawing to scene:", error);
