@@ -186,15 +186,27 @@ class DrawingManager {
   resizeCanvas() {
     if (!this.canvas) return;
     
-    const rect = this.canvas.getBoundingClientRect();
-    this.canvas.width = rect.width;
-    this.canvas.height = rect.height;
+    // Get the viewport dimensions
+    const viewportWidth = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+    const viewportHeight = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+    
+    // Calculate canvas size (80% of viewport with max dimensions)
+    const canvasWidth = Math.min(viewportWidth * 0.8, 800);
+    const canvasHeight = Math.min(viewportHeight * 0.6, 600);
+    
+    // Set canvas dimensions
+    this.canvas.width = canvasWidth;
+    this.canvas.height = canvasHeight;
+    
+    // Update canvas style
+    this.canvas.style.width = `${canvasWidth}px`;
+    this.canvas.style.height = `${canvasHeight}px`;
     
     // Restore any existing drawing
     if (this.drawingData) {
       const img = new Image();
       img.onload = () => {
-        this.ctx.drawImage(img, 0, 0);
+        this.ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
       };
       img.src = this.drawingData;
     }
