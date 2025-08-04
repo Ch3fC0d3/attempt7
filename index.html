@@ -628,85 +628,56 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       
       // Create a plane with the drawing texture
       async function createDrawingPlane(drawingData) {
-        // Create a simple plane
         const plane = new Node();
-        
-        // Create a canvas to use as a texture
-        const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 512;
-        const ctx = canvas.getContext('2d');
-        
-        // Draw a white background
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Create a temporary visible placeholder while loading
-        const tempMaterial = new Material();
-        tempMaterial.baseColorFactor = [0.9, 0.9, 0.9, 1.0]; // Light gray
-        
-        const tempMesh = new Mesh(gl, {
+
+        // Create a material for the drawing
+        const material = new Material();
+        material.depthTest = false; // Render on top of other surfaces
+        material.blend = true; // Enable transparency
+        material.blendFunc = [gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA];
+
+        // Load the drawing image as a texture
+        const texture = await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const texture = new Texture(gl, { image: img });
+            resolve(texture);
+          };
+          img.onerror = () => {
+            console.error("[DEBUG] Failed to load drawing image for texture");
+            resolve(null); // Resolve with null on error
+          };
+          img.src = drawingData;
+        });
+
+        if (!texture) {
+          console.error("[DEBUG] Could not create texture from drawing data.");
+          // Return an empty node or handle the error as needed
+          return plane;
+        }
+
+        material.baseColorTexture = texture;
+
+        // Create a mesh with the textured material
+        const mesh = new Mesh(gl, {
           vertices: [
             -1.0, -1.0, 0.0,
              1.0, -1.0, 0.0,
              1.0,  1.0, 0.0,
             -1.0,  1.0, 0.0,
           ],
+          texcoords: [
+            0.0, 1.0,
+            1.0, 1.0,
+            1.0, 0.0,
+            0.0, 0.0,
+          ],
           indices: [0, 1, 2, 0, 2, 3],
-          material: tempMaterial
+          material: material,
         });
-        
-        plane.addNode(tempMesh);
-        
-        // Load the image and update the plane asynchronously
-        await new Promise((resolve) => {
-          const img = new Image();
-          img.onload = () => {
-            // Draw the image onto the canvas
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            
-            // Create a texture from the canvas
-            const texture = new Texture(gl, {
-              image: canvas,
-              width: canvas.width,
-              height: canvas.height
-            });
-            
-            // Create a material using the texture
-            const material = new Material();
-            material.baseColorTexture = texture;
-            
-            // Create a mesh with the material
-            const mesh = new Mesh(gl, {
-              vertices: [
-                // Front face
-                -1.0, -1.0, 0.0,
-                 1.0, -1.0, 0.0,
-                 1.0,  1.0, 0.0,
-                -1.0,  1.0, 0.0,
-              ],
-              texcoords: [
-                0.0, 1.0,
-                1.0, 1.0,
-                1.0, 0.0,
-                0.0, 0.0,
-              ],
-              indices: [
-                0, 1, 2,
-                0, 2, 3,
-              ],
-              material: material
-            });
-            
-            // Remove the placeholder and add the actual mesh
-            plane.removeNode(tempMesh);
-            plane.addNode(mesh);
-            
-            resolve();
-          };
-          img.src = drawingData;
-        });
-        
+
+        plane.addNode(mesh);
+
         return plane;
       }
       
