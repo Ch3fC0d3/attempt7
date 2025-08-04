@@ -45,6 +45,12 @@ class DrawingManager {
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'drawing-canvas';
     this.canvas.style.marginTop = '20px'; // Add top margin to prevent toolbar overlap
+    this.canvas.style.width = '100%';
+    this.canvas.style.height = '80vh';
+    this.canvas.style.backgroundColor = 'white';
+    this.canvas.style.border = '1px solid #ccc';
+    this.canvas.style.display = 'block';
+    this.canvas.style.maxWidth = '500px';
     canvasWrapper.appendChild(this.canvas);
     
     // Create toolbar with enhanced visibility
@@ -440,6 +446,36 @@ class DrawingManager {
         }
         this.initialized = false;
       }, 300);
+    }
+  }
+
+  /**
+   * Resize the canvas based on window size
+   */
+  resizeCanvas() {
+    if (!this.canvas || !this.ctx) return;
+    
+    // Get the current drawing data
+    const currentDrawingData = this.drawingData;
+    
+    // Set canvas dimensions
+    const containerWidth = Math.min(window.innerWidth - 40, 500); // Max width 500px, padding 40px
+    const containerHeight = Math.min(window.innerHeight * 0.7, 600); // 70% of window height, max 600px
+    
+    this.canvas.width = containerWidth;
+    this.canvas.height = containerHeight;
+    
+    // Clear canvas and make it white
+    this.ctx.fillStyle = 'white';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // Restore any existing drawing
+    if (currentDrawingData) {
+      const img = new Image();
+      img.onload = () => {
+        this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
+      };
+      img.src = currentDrawingData;
     }
   }
 }
