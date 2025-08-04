@@ -47,20 +47,53 @@ class DrawingManager {
     const toolbar = document.createElement('div');
     toolbar.className = 'drawing-toolbar';
     toolbar.style.backgroundColor = '#333';
-    toolbar.style.padding = '15px';
-    toolbar.style.borderRadius = '8px';
-    toolbar.style.margin = '10px';
+    toolbar.style.padding = '12px 15px';
+    toolbar.style.borderRadius = '25px';
+    toolbar.style.margin = '10px 0';
     toolbar.style.display = 'flex';
-    toolbar.style.justifyContent = 'space-around';
-    toolbar.style.width = '80%';
+    toolbar.style.flexWrap = 'wrap';
+    toolbar.style.justifyContent = 'center';
+    toolbar.style.alignItems = 'center';
+    toolbar.style.width = '90%';
+    toolbar.style.maxWidth = '500px';
     toolbar.style.position = 'relative';
     toolbar.style.zIndex = '1001'; // Higher than canvas
+    toolbar.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.3)';
+    toolbar.style.border = '1px solid rgba(255, 255, 255, 0.1)';
     this.container.insertBefore(toolbar, canvasWrapper); // Place toolbar before canvas
     
-    // Add color picker with wrapper for better visibility
+    // Add predefined color buttons for better visibility and usability
+    const colors = ['#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff'];
+    
+    colors.forEach(color => {
+      const colorButton = document.createElement('div');
+      colorButton.className = 'drawing-tool';
+      colorButton.style.backgroundColor = color;
+      colorButton.style.border = color === this.currentColor ? '3px solid white' : '2px solid #555';
+      
+      colorButton.addEventListener('click', () => {
+        this.currentColor = color;
+        console.log('Color changed to:', this.currentColor);
+        
+        // Update active state for all color buttons
+        document.querySelectorAll('.drawing-tool').forEach(btn => {
+          if (btn.style.backgroundColor) {
+            btn.style.border = btn.style.backgroundColor === color ? '3px solid white' : '2px solid #555';
+          }
+        });
+      });
+      
+      toolbar.appendChild(colorButton);
+    });
+    
+    // Add color picker for custom colors
     const colorPickerWrapper = document.createElement('div');
     colorPickerWrapper.className = 'drawing-tool';
-    colorPickerWrapper.style.overflow = 'hidden';
+    colorPickerWrapper.style.overflow = 'visible';
+    colorPickerWrapper.style.backgroundColor = '#ffffff';
+    colorPickerWrapper.style.display = 'flex';
+    colorPickerWrapper.style.alignItems = 'center';
+    colorPickerWrapper.style.justifyContent = 'center';
     
     const colorPicker = document.createElement('input');
     colorPicker.type = 'color';
@@ -68,25 +101,60 @@ class DrawingManager {
     colorPicker.className = 'color-tool';
     colorPicker.style.opacity = '1';
     colorPicker.style.cursor = 'pointer';
+    colorPicker.style.width = '30px';
+    colorPicker.style.height = '30px';
+    colorPicker.style.padding = '0';
+    colorPicker.style.border = 'none';
+    colorPicker.style.margin = '0';
     colorPicker.addEventListener('input', (e) => {
       this.currentColor = e.target.value;
       console.log('Color changed to:', this.currentColor);
+      
+      // Update active state for all color buttons
+      document.querySelectorAll('.drawing-tool').forEach(btn => {
+        if (btn.style.backgroundColor) {
+          btn.style.border = '2px solid #555';
+        }
+      });
+      colorPickerWrapper.style.border = '3px solid white';
     });
     
     colorPickerWrapper.appendChild(colorPicker);
     toolbar.appendChild(colorPickerWrapper);
     
-    // Add size slider
+    // Add size slider with better styling
+    const sizeSliderContainer = document.createElement('div');
+    sizeSliderContainer.style.display = 'flex';
+    sizeSliderContainer.style.alignItems = 'center';
+    sizeSliderContainer.style.margin = '0 10px';
+    sizeSliderContainer.style.padding = '5px 10px';
+    sizeSliderContainer.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+    sizeSliderContainer.style.borderRadius = '15px';
+    
+    // Add size icon
+    const sizeIcon = document.createElement('div');
+    sizeIcon.innerHTML = '⚪';
+    sizeIcon.style.fontSize = '14px';
+    sizeIcon.style.marginRight = '5px';
+    sizeSliderContainer.appendChild(sizeIcon);
+    
+    // Create the slider
     const sizeSlider = document.createElement('input');
     sizeSlider.type = 'range';
     sizeSlider.min = '1';
     sizeSlider.max = '20';
     sizeSlider.value = this.currentSize;
     sizeSlider.className = 'size-slider';
+    sizeSlider.style.width = '80px';
+    sizeSlider.style.accentColor = '#4CAF50';
     sizeSlider.addEventListener('input', (e) => {
       this.currentSize = parseInt(e.target.value);
+      // Update size icon to reflect current size
+      sizeIcon.style.fontSize = `${Math.max(10, Math.min(20, this.currentSize))}px`;
     });
-    toolbar.appendChild(sizeSlider);
+    
+    sizeSliderContainer.appendChild(sizeSlider);
+    toolbar.appendChild(sizeSliderContainer);
     
     // Add pen tool
     const penTool = document.createElement('div');
