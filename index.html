@@ -57,6 +57,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrViewerSpace = null;
       let xrHitTestSource = null;
 
+      // Debug variables
+      let frameCounter = 0;
+      let lastLogTime = 0;
+
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
@@ -106,44 +110,69 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession() {
+        console.log("[DEBUG] Requesting AR session with hit-test and anchors");
         return navigator.xr.requestSession('immersive-ar', {requiredFeatures: ['local', 'hit-test', 'anchors']})
                            .then((session) => {
+          console.log("[DEBUG] AR session created successfully");
           xrButton.setSession(session);
           onSessionStarted(session);
+        }).catch(error => {
+          console.error(`[DEBUG] Error creating AR session: ${error.message}`);
         });
       }
 
       function onSessionStarted(session) {
+        console.log("[DEBUG] Session started");
         session.addEventListener('end', onSessionEnded);
         session.addEventListener('select', onSelect);
 
+        // Add additional event listeners for better debugging
+        session.addEventListener('inputsourceschange', (event) => {
+          console.log(`[DEBUG] Input sources changed: ${event.added.length} added, ${event.removed.length} removed`);
+        });
+
         if (!gl) {
+          console.log("[DEBUG] Creating WebGL context");
           gl = createWebGLContext({
             xrCompatible: true
           });
 
           renderer = new Renderer(gl);
+          console.log(`[DEBUG] Renderer created: ${renderer !== null}`);
 
           scene.setRenderer(renderer);
         }
 
+        console.log("[DEBUG] Updating render state");
         session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
         // In this sample we want to cast a ray straight out from the viewer's
         // position and render a reticle where it intersects with a real world
         // surface. To do this we first get the viewer space, then create a
         // hitTestSource that tracks it.
+        console.log("[DEBUG] Requesting viewer reference space");
         session.requestReferenceSpace('viewer').then((refSpace) => {
+          console.log("[DEBUG] Viewer reference space acquired");
           xrViewerSpace = refSpace;
+          console.log("[DEBUG] Requesting hit test source");
           session.requestHitTestSource({ space: xrViewerSpace }).then((hitTestSource) => {
+            console.log("[DEBUG] Hit test source acquired");
             xrHitTestSource = hitTestSource;
+          }).catch(error => {
+            console.error(`[DEBUG] Error creating hit test source: ${error.message}`);
           });
+        }).catch(error => {
+          console.error(`[DEBUG] Error getting viewer space: ${error.message}`);
         });
 
+        console.log("[DEBUG] Requesting local reference space");
         session.requestReferenceSpace('local').then((refSpace) => {
+          console.log("[DEBUG] Local reference space acquired");
           xrRefSpace = refSpace;
 
           session.requestAnimationFrame(onXRFrame);
+        }).catch(error => {
+          console.error(`[DEBUG] Error getting local space: ${error.message}`);
         });
       }
 
@@ -162,6 +191,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       const MAX_ANCHORED_OBJECTS = 30;
       let anchoredObjects = [];
       function addAnchoredObjectsToScene(anchor) {
+        console.log("[DEBUG] Adding anchored flower to scene");
         let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
         flower.scale = [0.3, 0.3, 0.3]; // Increased scale to make flowers bigger
         scene.addNode(flower);
@@ -170,6 +200,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           anchor: anchor
         });
 
+        console.log(`[DEBUG] Flower added, total anchored objects: ${anchoredObjects.length}`);
+
         // For performance reasons if we add too many objects start
         // removing the oldest ones to keep the scene complexity
         // from growing too much.
@@ -177,40 +209,48 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           let objectToRemove = anchoredObjects.shift();
           scene.removeNode(objectToRemove.anchoredObject);
           objectToRemove.anchor.delete();
+          console.log("[DEBUG] Removed oldest flower due to limit");
         }
       }
 
       let rayOrigin = vec3.create();
       let rayDirection = vec3.create();
       function onSelect(event) {
+        console.log("[DEBUG] onSelect called");
+        console.log(`[DEBUG] Reticle visible: ${reticle.visible}`);
+
         if (reticle.visible) {
+          console.log("[DEBUG] Creating anchor from hit test result");
           // Create an anchor.
           reticleHitTestResult.createAnchor().then((anchor) => {
+            console.log("[DEBUG] Anchor created successfully");
             addAnchoredObjectsToScene(anchor);
           }, (error) => {
-            console.error("Could not create anchor: " + error);
+            console.error("[DEBUG] Could not create anchor: " + error);
           });
+        } else {
+          console.log("[DEBUG] Reticle not visible, cannot place flower");
         }
       }
 
       // Debug counter to track frame rendering
       let frameCounter = 0;
       let lastLogTime = 0;
-      
+
       // Called every time a XRSession requests that a new frame be drawn.
       function onXRFrame(t, frame) {
         frameCounter++;
-        
+
         // Log debug info every 60 frames (approximately once per second)
         const shouldLog = (t - lastLogTime) > 1000;
         if (shouldLog) {
           console.log(`[DEBUG] Frame ${frameCounter} at time ${t.toFixed(2)}ms`);
           lastLogTime = t;
         }
-        
+
         let session = frame.session;
         let pose = frame.getViewerPose(xrRefSpace);
-        
+
         // Debug pose information
         if (shouldLog) {
           console.log(`[DEBUG] Pose available: ${pose !== null}`);
@@ -227,13 +267,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if (shouldLog) {
             console.log(`[DEBUG] Hit test results: ${hitTestResults.length}`);
           }
-          
+
           if (hitTestResults.length > 0) {
             let pose = hitTestResults[0].getPose(xrRefSpace);
             reticle.visible = true;
             reticle.matrix = pose.transform.matrix;
             reticleHitTestResult = hitTestResults[0];
-            
+
             if (shouldLog) {
               console.log(`[DEBUG] Reticle visible: ${reticle.visible}`);
               console.log(`[DEBUG] Reticle matrix: ${reticle.matrix[0].toFixed(2)},${reticle.matrix[5].toFixed(2)},${reticle.matrix[10].toFixed(2)}`);
@@ -245,25 +285,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (shouldLog) {
           console.log(`[DEBUG] Tracked anchors: ${frame.trackedAnchors ? frame.trackedAnchors.size : 'N/A'}`);
         }
-        
+
         for (const {anchoredObject, anchor} of anchoredObjects) {
           // only update the object's position if it's still in the list
           // of frame.trackedAnchors
           if (!frame.trackedAnchors.has(anchor)) {
-            if (shouldLog) {
-              console.log(`[DEBUG] Anchor not tracked anymore`);
-            }
             continue;
           }
           const anchorPose = frame.getPose(anchor.anchorSpace, xrRefSpace);
-          if (shouldLog && anchorPose) {
-            console.log(`[DEBUG] Anchor pose available: ${anchorPose !== null}`);
+          if (anchorPose) {
+            anchoredObject.matrix = anchorPose.transform.matrix;
+          } else if (shouldLog) {
+            console.log(`[DEBUG] No anchor pose for tracked anchor`);
           }
-          anchoredObject.matrix = anchorPose.transform.matrix;
         }
 
         scene.startFrame();
-        
+
         // Debug rendering
         if (shouldLog) {
           console.log(`[DEBUG] Before drawXRFrame - renderer ready: ${renderer !== null}`);
@@ -277,7 +315,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             console.log(`[DEBUG] drawXRFrame completed successfully`);
           }
         } catch (error) {
-          console.error(`[ERROR] Failed to draw XR frame: ${error.message}`);
+          console.error(`[DEBUG] Error in drawXRFrame: ${error.message}`);
         }
 
         scene.endFrame();
