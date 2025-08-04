@@ -187,23 +187,50 @@ const generateCSS = (options, fontSize=18)=> {
 
     button.${cssPrefix}-button {
         font-family: 'Karla', sans-serif;
-
-        border: ${borderColor} ${borderWidth}px solid;
+        
+        /* Glassmorphism style */
+        border: none;
         border-radius: ${borderRadius}px;
         box-sizing: border-box;
-        background: ${options.background ? options.background : 'none'};
-
-        height: ${height}px;
-        min-width: ${fontSize * 9.6}px;
+        background: rgba(255, 255, 255, 0.25); /* Semi-transparent white */
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2);
+        
+        /* Make it more prominent */
+        height: ${height * 1.5}px;
+        min-width: ${fontSize * 12}px;
         display: inline-block;
         position: relative;
+        margin: 10px;
+        padding: ${fontSize / 2}px ${fontSize}px ${fontSize / 2}px ${fontSize * 2}px;
+        
+        /* Disable select */
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
 
+        /* Enhanced text styling */
+        font-size: ${fontSize * 1.2}px;
+        font-weight: bold;
+        color: white;
+        text-shadow: 0 0 5px rgba(255,255,255,0.5);
+        line-height: ${(height * 1.5) - borderWidth * 2}px;
+        
         cursor: pointer;
-        transition: border 0.5s;
+        transition: all 0.3s ease;
     }
 
     button.${cssPrefix}-button:focus {
       outline: none;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
+    }
+    
+    button.${cssPrefix}-button:hover {
+      background: rgba(255, 255, 255, 0.35);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 35px rgba(31, 38, 135, 0.3);
     }
 
     /*

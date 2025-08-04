@@ -460,7 +460,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       <div class="app-header">
         <div class="header-top">
           <h1 class="app-title">Placebook AR</h1>
-          <a class="back-button" href="./">← Back</a>
         </div>
         
         <p class="tagline">
@@ -797,9 +796,62 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function initXR() {
         xrButton = new WebXRButton({
           onRequestSession: onRequestSession,
-          onEndSession: onEndSession
+          onEndSession: onEndSession,
+          textEnterXRTitle: '🥽 ENTER VR EXPERIENCE', // More descriptive text
+          textExitXRTitle: '🚪 EXIT VR EXPERIENCE',
+          height: 60 // Larger button
         });
-        document.querySelector('header').appendChild(xrButton.domElement);
+        
+        // Create a special container for the XR button for better positioning
+        const xrContainer = document.createElement('div');
+        xrContainer.className = 'xr-button-container';
+        xrContainer.style.cssText = `
+          position: fixed;
+          bottom: 30px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 1000;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 10px;
+          border-radius: 12px;
+          background: rgba(0, 0, 0, 0.2);
+          backdrop-filter: blur(5px);
+          box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2);
+        `;
+        
+        xrContainer.appendChild(xrButton.domElement);
+        document.body.appendChild(xrContainer);
+        
+        // Add a pulsing animation to draw attention
+        const style = document.createElement('style');
+        style.textContent = `
+          @keyframes pulse {
+            0% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.05); }
+            100% { transform: translateX(-50%) scale(1); }
+          }
+          .xr-button-container {
+            animation: pulse 2s infinite ease-in-out;
+          }
+        `;
+        document.head.appendChild(style);
+        
+        // Add instruction text above the button
+        const instructionEl = document.createElement('div');
+        instructionEl.textContent = 'Click to experience in Virtual Reality';
+        instructionEl.style.cssText = `
+          position: absolute;
+          top: -30px;
+          left: 50%;
+          transform: translateX(-50%);
+          color: white;
+          text-shadow: 0 0 5px rgba(0,0,0,0.5);
+          font-weight: bold;
+          white-space: nowrap;
+        `;
+        xrContainer.appendChild(instructionEl);
 
         if (navigator.xr) {
           navigator.xr.isSessionSupported('immersive-ar')
