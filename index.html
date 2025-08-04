@@ -421,11 +421,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             if (pendingDrawing) {
               console.log("[DEBUG] Placing drawing at hit location");
               
-              // Always add drawing to scene first, regardless of GPS availability
+              // IMPORTANT: Always create and add the drawing node first, regardless of GPS
+              // This ensures the drawing is visible in AR even without GPS
               const drawingNode = await addDrawingToScene(anchor, pendingDrawing);
               console.log("[DEBUG] Drawing node created:", drawingNode ? "success" : "failed");
               
               if (drawingNode) {
+                console.log("[DEBUG] Drawing node added to scene successfully");
+                
                 // Try to save with GPS if available, but don't block placement
                 try {
                   if (currentPosition) {
@@ -441,12 +444,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                     // Save drawing to server
                     await saveDrawingToServer(drawingData);
                     console.log(`[GPS] Drawing saved at ${drawingData.latitude}, ${drawingData.longitude}`);
-                    updateStatusMessage('Drawing placed and saved!');
+                    updateStatusMessage('Drawing placed and saved with GPS coordinates!');
                     
                     // Refresh nearby drawings (async)
                     await loadNearbyDrawings();
                   } else {
-                    // No GPS, but still place the drawing locally
+                    // No GPS, but drawing is already placed locally
                     console.log("[DEBUG] Drawing placed locally only (no GPS)");
                     updateStatusMessage('Drawing placed locally (GPS not available)');
                   }
@@ -461,6 +464,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               } else {
                 console.error("[DEBUG] Failed to create drawing node");
                 updateStatusMessage("Error creating drawing. Please try again.");
+                pendingDrawing = null; // Clear pending drawing on error
               }
             } else {
               // Check if GPS is available before placing a flower
@@ -613,6 +617,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Create a plane with the drawing texture
       async function createDrawingPlane(drawingData) {
         console.log("[DEBUG] createDrawingPlane called with data of length:", drawingData ? drawingData.length : 'null');
+        
+        // Validate drawing data early
+        if (!drawingData || !drawingData.startsWith('data:image')) {
+          console.error("[DEBUG] Invalid drawing data format:", drawingData ? drawingData.substring(0, 20) : 'null');
+          updateStatusMessage("Error: Invalid drawing data format");
+          return null; // Return null instead of an empty plane to clearly indicate failure
+        }
+        
         const plane = new Node();
 
         // Create a material for the drawing - using a simpler material approach
@@ -630,13 +642,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         material.metallicFactor = 0.0; // Non-metallic
         material.roughnessFactor = 1.0; // Fully rough
         material.emissiveFactor = [1.0, 1.0, 1.0]; // Maximum glow
-
-        // Validate drawing data
-        if (!drawingData || !drawingData.startsWith('data:image')) {
-          console.error("[DEBUG] Invalid drawing data format:", drawingData ? drawingData.substring(0, 20) : 'null');
-          updateStatusMessage("Error: Invalid drawing data format");
-          return plane;
-        }
 
         // Load the drawing image as a texture
         const texture = await new Promise((resolve) => {
@@ -660,10 +665,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (!texture) {
           console.error("[DEBUG] Could not create texture from drawing data.");
           updateStatusMessage("Error: Could not create drawing texture");
-          // Return an empty node or handle the error as needed
-          return plane;
+          return null; // Return null instead of an empty plane to clearly indicate failure
         }
 
+        console.log("[DEBUG] Texture created successfully");
         material.baseColorTexture = texture;
 
         // Create a simpler quad for the drawing
@@ -810,6 +815,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         
         // Notify user to place the drawing
         updateStatusMessage('Drawing ready! Point at a surface to place it.');
+        
+        // Log GPS status for debugging
+        if (currentPosition) {
+          console.log('[DEBUG] GPS is available for drawing placement');
+        } else {
+          console.log('[DEBUG] GPS is NOT available, but drawing will still be placed locally');
+        }
       });
       
       // Function to add a drawing to the scene (similar to addAnchoredObjectsToScene)
@@ -825,6 +837,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           
           // Create a plane for the drawing
           const drawingPlane = await createDrawingPlane(drawingData);
+          if (!drawingPlane) {
+            console.error("[DEBUG] Failed to create drawing plane");
+            return null;
+          }
+          
+          console.log("[DEBUG] Drawing plane created successfully");
           
           // Make sure the drawing is visible and properly scaled
           drawingPlane.scale = [0.5, 0.5, 0.5]; // Increased scale for better visibility
@@ -837,6 +855,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           
           // Add the drawing directly to the scene first for visibility testing
           scene.addNode(drawingNode);
+          console.log("[DEBUG] Drawing node added to scene");
           
           // Create a simple colored cube as a test marker
           const testCube = new Mesh(gl, {
@@ -861,7 +880,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               4, 0, 3,    4, 3, 5  // left
             ],
             material: new Material({
-              baseColorFactor: [1.0, 0.0, 0.0, 1.0] // Bright red
+              baseColorFactor: [1.0, 0.0, 0.0, 1.0], // Bright red
+              depthTest: false, // Disable depth testing for visibility
+              blend: true // Enable blending
             })
           });
           
@@ -870,6 +891,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           testNode.addNode(testCube);
           testNode.renderOrder = 3000; // Even higher render order
           drawingNode.addNode(testNode);
+          console.log("[DEBUG] Test cube added to drawing node");
           
           // Add to anchored objects with specific type
           anchoredObjects.push({
@@ -879,6 +901,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             isGpsFlower: false
           });
           
+          console.log("[DEBUG] Drawing added to anchored objects array, total count:", anchoredObjects.length);
           console.log("[DEBUG] Drawing added to scene successfully with test cube");
           return drawingNode;
         } catch (error) {
