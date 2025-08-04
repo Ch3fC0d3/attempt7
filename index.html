@@ -162,6 +162,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let anchoredObjects = [];
       function addAnchoredObjectsToScene(anchor) {
         let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+        flower.scale = [0.3, 0.3, 0.3]; // Increased scale to make flowers bigger
         scene.addNode(flower);
         anchoredObjects.push({
           anchoredObject: flower,
