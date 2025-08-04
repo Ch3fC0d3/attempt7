@@ -760,6 +760,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Start the application
       initXR();
       addGpsControls();
+      
+      // Initialize GPS functionality
+      initGPS().then(success => {
+        if (success) {
+          console.log('[GPS] GPS initialized successfully');
+        } else {
+          console.error('[GPS] Failed to initialize GPS');
+        }
+      });
     </script>
   </body>
 </html>
