@@ -32,6 +32,7 @@
       let xrButton = null;
       let xrSession = null;
       let xrRefSpace = null;
+      let hitTestSource = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -39,14 +40,11 @@
       let scene = new Scene();
       scene.enableStats(false);
 
-      let sunflower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
-      sunflower.scale = [0.1, 0.1, 0.1];
-      scene.addNode(sunflower);
+      // Array to store all placed flowers
+      let flowers = [];
       
-      // Only placing a single sunflower in this simplified version
-      let flower = {
-        node: sunflower,
-      };
+      // Flower size - increased from 0.1 to 0.3 (3x bigger)
+      const FLOWER_SCALE = 0.3;
 
       function initXR() {
         xrButton = new WebXRButton({
@@ -67,9 +65,9 @@
       }
 
       function onRequestSession() {
-        // Simplified version with only 'local' as a required feature
+        // Using local and hit-test features to allow placing multiple flowers
         return navigator.xr.requestSession('immersive-ar', {
-          requiredFeatures: ['local']
+          requiredFeatures: ['local', 'hit-test']
         }).then((session) => {
           xrSession = session;
           xrButton.setSession(session);
@@ -79,6 +77,7 @@
 
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
+        session.addEventListener('select', onSelect); // Add select event for tapping
 
         if (!gl) {
           gl = createWebGLContext({
@@ -86,7 +85,6 @@
           });
 
           renderer = new Renderer(gl);
-
           scene.setRenderer(renderer);
         }
 
@@ -94,8 +92,19 @@
           baseLayer: new XRWebGLLayer(session, gl)
         });
 
-        session.requestReferenceSpace('local').then((refSpace) => {
-          xrRefSpace = refSpace;
+        // Request both reference spaces
+        Promise.all([
+          session.requestReferenceSpace('local'),
+          session.requestReferenceSpace('viewer')
+        ]).then((spaces) => {
+          xrRefSpace = spaces[0];
+          
+          // Set up hit testing
+          const viewerSpace = spaces[1];
+          session.requestHitTestSource({ space: viewerSpace }).then((source) => {
+            hitTestSource = source;
+          });
+          
           session.requestAnimationFrame(onXRFrame);
         });
       }
@@ -107,23 +116,45 @@
       function onSessionEnded(event) {
         xrSession = null;
         xrButton.setSession(null);
+        hitTestSource = null;
+      }
+      
+      // Function to handle the select event (when user taps the screen)
+      function onSelect(event) {
+        if (hitTestSource) {
+          const frame = event.frame;
+          const hitTestResults = frame.getHitTestResults(hitTestSource);
+          
+          // If we hit something, place a flower there
+          if (hitTestResults.length > 0) {
+            const hit = hitTestResults[0];
+            const pose = hit.getPose(xrRefSpace);
+            
+            // Create a new sunflower at the hit location
+            const sunflower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+            sunflower.scale = [FLOWER_SCALE, FLOWER_SCALE, FLOWER_SCALE]; // Make flowers bigger
+            sunflower.translation = pose.transform.position;
+            sunflower.rotation = pose.transform.orientation;
+            
+            // Add the flower to the scene and our array
+            scene.addNode(sunflower);
+            flowers.push(sunflower);
+          }
+        }
       }
 
       function onXRFrame(time, frame) {
         let session = frame.session;
         let pose = frame.getViewerPose(xrRefSpace);
 
-        // Place the sunflower 1.5 meters in front of the viewer
-        if (pose) {
-          let position = vec3.fromValues(0, 0, -1.5);
-          vec3.transformMat4(position, position, pose.transform.matrix);
-          
-          flower.node.translation = position;
-        }
-
         scene.startFrame();
-        session.requestAnimationFrame(onXRFrame);
-        scene.drawXRFrame(frame, pose);
+        
+        // Draw the scene
+        if (pose) {
+          session.requestAnimationFrame(onXRFrame);
+          scene.drawXRFrame(frame, pose);
+        }
+        
         scene.endFrame();
       }
 
