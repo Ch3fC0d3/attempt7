@@ -1,14 +1,22 @@
-// Simple in-memory database for storing flower locations
-// In a production app, this would be replaced with a server-side database
+// Flower database that communicates with a backend server for persistent storage
+// This allows all users to see the same flowers at the same locations
 
 class FlowerDatabase {
   constructor() {
     this.flowers = [];
-    this.loadFromLocalStorage();
+    this.serverUrl = 'https://ar-flowers-server.onrender.com/api'; // Deployed server URL
+    this.localServerUrl = 'http://localhost:3000/api'; // For local testing
+    this.useLocalServer = false; // Using the deployed server
+    
+    // Use the appropriate server URL based on the environment
+    this.apiUrl = this.useLocalServer ? this.localServerUrl : this.serverUrl;
+    
+    // Load initial flowers
+    this.loadFromServer();
   }
 
   // Save a flower at the current GPS location
-  saveFlower(position, matrixTransform) {
+  async saveFlower(position, matrixTransform) {
     const flower = {
       id: this.generateId(),
       latitude: position.coords.latitude,
@@ -19,27 +27,103 @@ class FlowerDatabase {
       matrix: Array.from(matrixTransform)
     };
     
-    this.flowers.push(flower);
-    this.saveToLocalStorage();
-    console.log(`[GPS] Saved flower at lat: ${flower.latitude}, lng: ${flower.longitude}`);
-    return flower;
+    try {
+      // Save to server
+      const response = await fetch(`${this.apiUrl}/flowers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(flower)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+      
+      const savedFlower = await response.json();
+      console.log(`[GPS] Saved flower to server at lat: ${savedFlower.latitude}, lng: ${savedFlower.longitude}`);
+      
+      // Add to local cache
+      this.flowers.push(savedFlower);
+      
+      return savedFlower;
+    } catch (error) {
+      console.error('[GPS] Failed to save flower to server:', error);
+      
+      // Fallback to local storage if server is unavailable
+      this.saveToLocalStorage(flower);
+      this.flowers.push(flower);
+      
+      return flower;
+    }
   }
 
   // Get all flowers near the current GPS location (within distanceThreshold meters)
-  getNearbyFlowers(position, distanceThreshold = 20) {
-    const currentLat = position.coords.latitude;
-    const currentLng = position.coords.longitude;
-    
-    return this.flowers.filter(flower => {
-      const distance = this.calculateDistance(
-        currentLat, currentLng,
-        flower.latitude, flower.longitude
+  async getNearbyFlowers(position, distanceThreshold = 20) {
+    try {
+      // Try to get flowers from server first
+      const currentLat = position.coords.latitude;
+      const currentLng = position.coords.longitude;
+      
+      const response = await fetch(
+        `${this.apiUrl}/flowers/nearby?lat=${currentLat}&lng=${currentLng}&distance=${distanceThreshold}`
       );
       
-      const isNearby = distance <= distanceThreshold;
-      console.log(`[GPS] Flower distance: ${distance.toFixed(2)}m, visible: ${isNearby}`);
-      return isNearby;
-    });
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+      
+      const nearbyFlowers = await response.json();
+      console.log(`[GPS] Loaded ${nearbyFlowers.length} nearby flowers from server`);
+      
+      // Update local cache
+      this.flowers = nearbyFlowers;
+      
+      return nearbyFlowers;
+    } catch (error) {
+      console.error('[GPS] Failed to get nearby flowers from server:', error);
+      console.log('[GPS] Falling back to local calculations');
+      
+      // Fallback to local calculations if server is unavailable
+      const currentLat = position.coords.latitude;
+      const currentLng = position.coords.longitude;
+      
+      return this.flowers.filter(flower => {
+        const distance = this.calculateDistance(
+          currentLat, currentLng,
+          flower.latitude, flower.longitude
+        );
+        
+        const isNearby = distance <= distanceThreshold;
+        console.log(`[GPS] Flower distance: ${distance.toFixed(2)}m, visible: ${isNearby}`);
+        return isNearby;
+      });
+    }
+  }
+
+  // Load all flowers from the server
+  async loadFromServer() {
+    try {
+      const response = await fetch(`${this.apiUrl}/flowers`);
+      
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+      
+      this.flowers = await response.json();
+      console.log(`[GPS] Loaded ${this.flowers.length} flowers from server`);
+      
+      // Backup to local storage
+      this.saveToLocalStorage(this.flowers);
+      
+      return this.flowers;
+    } catch (error) {
+      console.error('[GPS] Failed to load flowers from server:', error);
+      
+      // Fallback to local storage
+      return this.loadFromLocalStorage();
+    }
   }
 
   // Calculate distance between two GPS coordinates in meters using the Haversine formula
@@ -63,35 +147,54 @@ class FlowerDatabase {
     return 'flower_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   }
 
-  // Save flowers to localStorage for persistence
-  saveToLocalStorage() {
+  // Save flowers to localStorage as backup
+  saveToLocalStorage(flowers) {
     try {
-      localStorage.setItem('gpsFlowers', JSON.stringify(this.flowers));
-      console.log(`[GPS] Saved ${this.flowers.length} flowers to localStorage`);
+      localStorage.setItem('gpsFlowers', JSON.stringify(flowers || this.flowers));
+      console.log(`[GPS] Saved ${(flowers || this.flowers).length} flowers to localStorage (backup)`);
     } catch (e) {
       console.error('[GPS] Failed to save flowers to localStorage:', e);
     }
   }
 
-  // Load flowers from localStorage
+  // Load flowers from localStorage (fallback)
   loadFromLocalStorage() {
     try {
       const savedFlowers = localStorage.getItem('gpsFlowers');
       if (savedFlowers) {
         this.flowers = JSON.parse(savedFlowers);
-        console.log(`[GPS] Loaded ${this.flowers.length} flowers from localStorage`);
+        console.log(`[GPS] Loaded ${this.flowers.length} flowers from localStorage (fallback)`);
+        return this.flowers;
       }
+      return [];
     } catch (e) {
       console.error('[GPS] Failed to load flowers from localStorage:', e);
       this.flowers = [];
+      return [];
     }
   }
 
   // Clear all stored flowers
-  clearAll() {
+  async clearAll() {
+    try {
+      // Clear from server
+      const response = await fetch(`${this.apiUrl}/flowers`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+      
+      console.log('[GPS] Cleared all flowers from server');
+    } catch (error) {
+      console.error('[GPS] Failed to clear flowers from server:', error);
+    }
+    
+    // Clear local cache and storage
     this.flowers = [];
     localStorage.removeItem('gpsFlowers');
-    console.log('[GPS] Cleared all flowers');
+    console.log('[GPS] Cleared all flowers from local storage');
   }
 }
 
