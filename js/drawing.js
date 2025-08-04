@@ -57,36 +57,26 @@ class DrawingManager {
     canvasWrapper.style.borderRadius = '8px';
     this.container.appendChild(canvasWrapper);
     
-    // Create a visible placeholder first
-    const placeholder = document.createElement('div');
-    placeholder.style.width = '400px';
-    placeholder.style.height = '350px';
-    placeholder.style.backgroundColor = '#ffffff';
-    placeholder.style.border = '5px solid red';
-    placeholder.style.display = 'flex';
-    placeholder.style.justifyContent = 'center';
-    placeholder.style.alignItems = 'center';
-    placeholder.style.margin = '0 auto';
-    placeholder.textContent = 'CANVAS AREA';
-    placeholder.style.fontSize = '24px';
-    placeholder.style.fontWeight = 'bold';
-    placeholder.style.color = '#000';
-    canvasWrapper.appendChild(placeholder);
+    // Create canvas with inline HTML approach
+    canvasWrapper.innerHTML = `
+      <canvas id="drawing-canvas" width="400" height="350" 
+        style="background-color: #ffffff; border: 3px solid #ff0000; display: block; margin: 0 auto;">
+        Your browser does not support canvas
+      </canvas>
+    `;
     
-    // Create canvas - direct approach
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = 400;
-    this.canvas.height = 350;
-    this.canvas.className = 'drawing-canvas';
-    this.canvas.style.backgroundColor = '#ffffff';
-    this.canvas.style.border = '2px solid #000';
-    this.canvas.style.position = 'absolute';
-    this.canvas.style.top = '0';
-    this.canvas.style.left = '0';
-    this.canvas.style.right = '0';
-    this.canvas.style.bottom = '0';
-    this.canvas.style.margin = 'auto';
-    placeholder.appendChild(this.canvas);
+    // Get the canvas from the DOM
+    this.canvas = document.getElementById('drawing-canvas');
+    
+    // Add a visible text label above the canvas
+    const canvasLabel = document.createElement('div');
+    canvasLabel.textContent = 'DRAWING CANVAS';
+    canvasLabel.style.textAlign = 'center';
+    canvasLabel.style.fontWeight = 'bold';
+    canvasLabel.style.fontSize = '16px';
+    canvasLabel.style.color = '#ffffff';
+    canvasLabel.style.marginBottom = '10px';
+    canvasWrapper.insertBefore(canvasLabel, canvasWrapper.firstChild);
     
     // Create toolbar with enhanced visibility
     const toolbar = document.createElement('div');
@@ -477,13 +467,16 @@ class DrawingManager {
       // Fade out animation
       this.container.style.opacity = '0';
       
-      // Remove the container after animation completes
+      // Remove the container after animation completes but don't exit AR mode
       setTimeout(() => {
         if (this.container && this.container.parentNode) {
           this.container.parentNode.removeChild(this.container);
           this.container = null;
         }
         this.initialized = false;
+        
+        // Don't do anything else - let the AR session continue
+        console.log('Drawing UI hidden, returning to AR for placement');
       }, 300);
     }
   }
