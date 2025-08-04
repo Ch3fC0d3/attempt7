@@ -610,9 +610,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         // Create a material for the drawing
         const material = new Material();
-        material.depthTest = false; // Render on top of other surfaces
+        
+        // Make sure the drawing is visible
+        material.depthTest = true; // Enable depth testing
         material.blend = true; // Enable transparency
         material.blendFunc = [gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA];
+        material.cullMode = gl.NONE; // Don't cull any faces
+        
+        // Set material properties to make it more visible
+        material.baseColorFactor = [1.0, 1.0, 1.0, 1.0]; // Full opacity
+        material.metallicFactor = 0.0; // Non-metallic
+        material.roughnessFactor = 1.0; // Fully rough
+        material.emissiveFactor = [0.2, 0.2, 0.2]; // Slight glow
 
         // Validate drawing data
         if (!drawingData || !drawingData.startsWith('data:image')) {
@@ -626,7 +635,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           const img = new Image();
           img.onload = () => {
             console.log("[DEBUG] Image loaded successfully, dimensions:", img.width, "x", img.height);
-            const texture = new Texture(gl, { image: img });
+            const texture = new Texture(gl, { 
+              image: img,
+              format: gl.RGBA, // Use RGBA format
+              generateMipmaps: true // Generate mipmaps for better rendering
+            });
             resolve(texture);
           };
           img.onerror = (error) => {
@@ -659,11 +672,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             1.0, 0.0,
             0.0, 0.0,
           ],
+          normals: [
+            0.0, 0.0, 1.0,
+            0.0, 0.0, 1.0,
+            0.0, 0.0, 1.0,
+            0.0, 0.0, 1.0,
+          ],
           indices: [0, 1, 2, 0, 2, 3],
           material: material,
         });
 
-        plane.addNode(mesh);
+        // Create a parent node with proper transformation
+        const drawingNode = new Node();
+        drawingNode.addNode(mesh);
+        
+        // Add the drawing node to the plane
+        plane.addNode(drawingNode);
+        
+        // Log success
+        console.log("[DEBUG] Drawing plane created successfully with mesh and texture");
 
         return plane;
       }
@@ -784,13 +811,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           
           // Create a plane for the drawing
           const drawingPlane = await createDrawingPlane(drawingData);
-          drawingPlane.scale = [0.2, 0.2, 0.2]; // Scale appropriately
+          
+          // Make sure the drawing is visible and properly scaled
+          drawingPlane.scale = [0.5, 0.5, 0.5]; // Increased scale for better visibility
+          
+          // Rotate the drawing to face the camera (Y-up orientation)
+          drawingPlane.rotation = [Math.PI/2, 0, 0]; // Rotate 90 degrees around X axis
+          
+          // Add the drawing plane to the drawing node
           drawingNode.addNode(drawingPlane);
           
           // Add the drawing to the scene
           scene.addNode(drawingNode);
           
-          // Add to anchored objects
+          // Add to anchored objects with specific type
           anchoredObjects.push({
             anchoredObject: drawingNode,
             anchor: anchor,
