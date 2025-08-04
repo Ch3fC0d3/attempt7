@@ -194,17 +194,35 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
       
       // Load nearby flowers based on current position
-      function loadNearbyFlowers() {
-        if (!currentPosition) return;
+      async function loadNearbyFlowers() {
+        if (!currentPosition) {
+          console.log('[GPS] No position available yet');
+          return;
+        }
         
-        nearbyFlowers = flowerDB.getNearbyFlowers(currentPosition, NEARBY_THRESHOLD);
-        console.log(`[GPS] Found ${nearbyFlowers.length} nearby flowers`);
-        
-        // Update status with flower count
-        updateStatusMessage(`GPS: ${currentPosition.coords.latitude.toFixed(6)}, ${currentPosition.coords.longitude.toFixed(6)} | Nearby flowers: ${nearbyFlowers.length}`);
-        
-        // Update the scene with the nearby flowers
-        updateFlowersInScene();
+        try {
+          // Get nearby flowers from server
+          nearbyFlowers = await flowerDB.getNearbyFlowers(currentPosition, NEARBY_THRESHOLD);
+          
+          // Ensure nearbyFlowers is always an array
+          if (!nearbyFlowers || !Array.isArray(nearbyFlowers)) {
+            console.warn('[GPS] Server returned invalid data, using empty array');
+            nearbyFlowers = [];
+          }
+          
+          console.log(`[GPS] Found ${nearbyFlowers.length} nearby flowers`);
+          
+          // Update status with flower count
+          updateStatusMessage(`GPS: ${currentPosition.coords.latitude.toFixed(6)}, ${currentPosition.coords.longitude.toFixed(6)} | Nearby flowers: ${nearbyFlowers.length}`);
+          
+          // Update the scene with the nearby flowers
+          updateFlowersInScene();
+        } catch (error) {
+          console.error('[GPS] Error loading nearby flowers:', error);
+          updateStatusMessage('Error loading nearby flowers. Check console for details.');
+          // Ensure nearbyFlowers is an empty array on error
+          nearbyFlowers = [];
+        }
       }
       
       // Update the scene with nearby flowers
@@ -386,17 +404,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (reticle.visible) {
           console.log("[DEBUG] Creating anchor from hit test result");
           // Create an anchor.
-          reticleHitTestResult.createAnchor().then((anchor) => {
+          reticleHitTestResult.createAnchor().then(async (anchor) => {
             console.log("[DEBUG] Anchor created successfully");
             
             // Check if GPS is available before placing a flower
             if (gpsInitialized && currentPosition) {
-              // Save the flower with GPS coordinates
+              // Save the flower with GPS coordinates to server
               const pose = reticleHitTestResult.getPose(xrRefSpace);
-              const flowerData = flowerDB.saveFlower(currentPosition, Array.from(pose.transform.matrix));
-              console.log(`[GPS] Saved flower at ${flowerData.latitude}, ${flowerData.longitude}`);
-              updateStatusMessage(`Flower placed at ${flowerData.latitude.toFixed(6)}, ${flowerData.longitude.toFixed(6)}`);
-              updateCoordinatesDisplay();
+              try {
+                const flowerData = await flowerDB.saveFlower(currentPosition, Array.from(pose.transform.matrix));
+                console.log(`[GPS] Saved flower at ${flowerData.latitude}, ${flowerData.longitude}`);
+                updateStatusMessage(`Flower placed and saved to server!`);
+                updateCoordinatesDisplay();
+              } catch (error) {
+                console.error('[GPS] Error saving flower to server:', error);
+                updateStatusMessage('Error saving flower to server. Placed locally only.');
+              }
             } else {
               console.log("[GPS] GPS not available, placing local flower only");
               updateStatusMessage("GPS not available, placing local flower only");
@@ -404,7 +427,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             
             // Add the flower to the scene as usual
             addAnchoredObjectsToScene(anchor);
-          }, (error) => {
+          }).catch((error) => {
             console.error("[DEBUG] Could not create anchor: " + error);
             updateStatusMessage("Could not place flower: " + error);
           });
