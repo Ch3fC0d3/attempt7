@@ -518,6 +518,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {geoService} from './js/geolocation.js';
       import {flowerDB} from './js/database.js';
       import './js/drawing.js'; // Import for side effects only (creates global DrawingManager)
+      import {setupEventListeners} from './server/setupEventListeners.js';
+      
+      // Call setupEventListeners when DOM is loaded
+      document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOM loaded, setting up event listeners');
+        setupEventListeners();
+      });
+      
+      // Also call immediately in case DOM is already loaded
+      if (document.readyState === 'interactive' || document.readyState === 'complete') {
+        console.log('DOM already loaded, setting up event listeners now');
+        setupEventListeners();
+      }
 
       // XR globals.
       let xrButton = null;
@@ -592,8 +605,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           }
           
           geoService.startWatching();
-          
-          // Add position update listener
           geoService.addPositionListener(handlePositionUpdate);
           
           // Get initial position
@@ -607,7 +618,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           
           gpsInitialized = true;
           initXR();
-          setupEventListeners();
           return true;
         } catch (error) {
           console.error('[GPS] Error initializing GPS:', error);
