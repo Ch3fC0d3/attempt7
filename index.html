@@ -914,6 +914,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Start the application
       initXR();
       addGpsControls();
+      
+      // Initialize GPS functionality
+      initGPS().then(success => {
+        if (success) {
+          console.log('[DEBUG] GPS initialized successfully');
+        } else {
+          console.log('[DEBUG] GPS initialization failed');
+          updateStatusMessage('GPS unavailable. Some features may be limited.');
+        }
+      });
     </script>
   </body>
 </html>
